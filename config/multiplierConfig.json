@@ -5,11 +5,11 @@
     "timePoints": [
       { "time": 0, "multiplier": 1.0, "rocketState": "ground" },
       { "time": 1, "multiplier": 1.16, "rocketState": "ground" },
-      { "time": 2, "multiplier": 1.35, "rocketState": "ground" },
-      { "time": 3, "multiplier": 1.56, "rocketState": "ground" },
-      { "time": 4, "multiplier": 1.81, "rocketState": "ground" },
-      { "time": 5, "multiplier": 2.10, "rocketState": "ground" },
-      { "time": 6, "multiplier": 2.43, "rocketState": "ground" },
+      { "time": 2, "multiplier": 1.35, "rocketState": "sky" },
+      { "time": 3, "multiplier": 1.56, "rocketState": "sky" },
+      { "time": 4, "multiplier": 1.81, "rocketState": "sky" },
+      { "time": 5, "multiplier": 2.10, "rocketState": "sky" },
+      { "time": 6, "multiplier": 2.43, "rocketState": "sky" },
       { "time": 7, "multiplier": 2.81, "rocketState": "sky" },
       { "time": 8, "multiplier": 3.25, "rocketState": "sky" },
       { "time": 9, "multiplier": 3.75, "rocketState": "sky" },
@@ -22,12 +22,12 @@
       { "time": 16, "multiplier": 9.80, "rocketState": "sky" },
       { "time": 17, "multiplier": 11.33, "rocketState": "sky" },
       { "time": 18, "multiplier": 13.11, "rocketState": "sky" },
-      { "time": 19, "multiplier": 15.16, "rocketState": "sky" },
-      { "time": 20, "multiplier": 16.63, "rocketState": "sky" },
+      { "time": 19, "multiplier": 15.16, "rocketState": "atmosphere" },
+      { "time": 20, "multiplier": 16.63, "rocketState": "atmosphere" },
       { "time": 22, "multiplier": 22.20, "rocketState": "atmosphere" },
       { "time": 25, "multiplier": 33.12, "rocketState": "atmosphere" },
       { "time": 28, "multiplier": 49.40, "rocketState": "atmosphere" },
-      { "time": 30, "multiplier": 64.65, "rocketState": "space" },
+      { "time": 30, "multiplier": 64.65, "rocketState": "atmosphere" },
       { "time": 35, "multiplier": 148.41, "rocketState": "space" },
       { "time": 40, "multiplier": 251.50, "rocketState": "space" },
       { "time": 45, "multiplier": 665.14, "rocketState": "space" },
@@ -37,10 +37,14 @@
     "interpolationType": "exponential"
   },
   "crashConfig": [
-    { "minMultiplier": 1.1, "maxMultiplier": 2.0, "probability": 0.30, "description": "早期崩盘" },
-    { "minMultiplier": 2.0, "maxMultiplier": 4.0, "probability": 0.40, "description": "中期崩盘" },
-    { "minMultiplier": 4.0, "maxMultiplier": 8.0, "probability": 0.20, "description": "后期崩盘" },
-    { "minMultiplier": 8.0, "maxMultiplier": 15.0, "probability": 0.08, "description": "高倍数崩盘" },
-    { "minMultiplier": 15.0, "maxMultiplier": 30.0, "probability": 0.02, "description": "超高倍数崩盘" }
+    { "minMultiplier": 1.1, "maxMultiplier": 2.0, "probability": 0.05, "description": "早期崩盘" },
+    { "minMultiplier": 2.0, "maxMultiplier": 4.0, "probability": 0.20, "description": "中期崩盘" },
+    { "minMultiplier": 4.0, "maxMultiplier": 8.0, "probability": 0.25, "description": "后期崩盘" },
+    { "minMultiplier": 8.0, "maxMultiplier": 15.0, "probability": 0.10, "description": "高倍数崩盘" },
+    { "minMultiplier": 15.0, "maxMultiplier": 30.0, "probability": 0.12, "description": "超高倍数崩盘" },
+    { "minMultiplier": 30.0, "maxMultiplier": 60.0, "probability": 0.12, "description": "超高倍数崩盘" },
+    { "minMultiplier": 60.0, "maxMultiplier": 120.0, "probability": 0.12, "description": "超高倍数崩盘" },
+    { "minMultiplier": 120.0, "maxMultiplier": 260.0, "probability": 0.02, "description": "超高倍数崩盘" },
+    { "minMultiplier": 260.0, "maxMultiplier": 2000.0, "probability": 0.02, "description": "超高倍数崩盘" }
   ]
 }

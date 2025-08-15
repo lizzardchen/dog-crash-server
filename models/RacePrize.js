@@ -75,6 +75,13 @@ const racePrizeSchema = new mongoose.Schema({
         required: true,
         min: 0
     },
+    // 用户在比赛中贡献的总奖金（奖池贡献）
+    score: {
+        type: Number,
+        required: true,
+        min: 0,
+        default: 0
+    },
     // 系统信息
     createdBy: {
         type: String,
@@ -98,62 +105,62 @@ racePrizeSchema.index({ raceId: 1, rank: 1 });
 racePrizeSchema.index({ createdAt: -1 });
 
 // 实例方法 - 领取奖励
-racePrizeSchema.methods.claim = function() {
+racePrizeSchema.methods.claim = function () {
     if (this.status !== 'pending') {
         throw new Error('Prize already claimed');
     }
-    
+
     this.status = 'claimed';
     this.claimedAt = new Date();
-    
+
     return this.save();
 };
 
 // 静态方法 - 获取用户的待领取奖励
-racePrizeSchema.statics.getUserPendingPrizes = async function(userId, limit = 50) {
-    return this.find({ 
-        userId: userId, 
+racePrizeSchema.statics.getUserPendingPrizes = async function (userId, limit = 50) {
+    return this.find({
+        userId: userId,
         status: 'pending'
     })
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .lean();
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .lean();
 };
 
 // 静态方法 - 获取用户的奖励历史
-racePrizeSchema.statics.getUserPrizeHistory = async function(userId, limit = 20) {
+racePrizeSchema.statics.getUserPrizeHistory = async function (userId, limit = 20) {
     return this.find({ userId: userId })
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .lean();
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .lean();
 };
 
 // 静态方法 - 获取比赛的所有奖励记录
-racePrizeSchema.statics.getRacePrizes = async function(raceId) {
+racePrizeSchema.statics.getRacePrizes = async function (raceId) {
     return this.find({ raceId: raceId })
-    .sort({ rank: 1 })
-    .lean();
+        .sort({ rank: 1 })
+        .lean();
 };
 
 // 静态方法 - 批量创建奖励记录
-racePrizeSchema.statics.batchCreatePrizes = async function(prizes) {
+racePrizeSchema.statics.batchCreatePrizes = async function (prizes) {
     if (!prizes || prizes.length === 0) return [];
-    
+
     const operations = prizes.map(prize => ({
         insertOne: {
             document: prize
         }
     }));
-    
+
     const result = await this.bulkWrite(operations, { ordered: false });
     return result.insertedCount;
 };
 
 
 // 静态方法 - 获取奖励统计信息
-racePrizeSchema.statics.getPrizeStats = async function(raceId = null) {
+racePrizeSchema.statics.getPrizeStats = async function (raceId = null) {
     const matchCondition = raceId ? { raceId: raceId } : {};
-    
+
     const stats = await this.aggregate([
         { $match: matchCondition },
         {
@@ -164,7 +171,7 @@ racePrizeSchema.statics.getPrizeStats = async function(raceId = null) {
             }
         }
     ]);
-    
+
     return stats.reduce((acc, stat) => {
         acc[stat._id] = {
             count: stat.count,
@@ -175,7 +182,7 @@ racePrizeSchema.statics.getPrizeStats = async function(raceId = null) {
 };
 
 // 预处理中间件 - 数据验证
-racePrizeSchema.pre('save', function(next) {
+racePrizeSchema.pre('save', function (next) {
     // 确保数值不为负数
     if (this.prizeAmount < 0) {
         this.prizeAmount = 0;
@@ -186,12 +193,12 @@ racePrizeSchema.pre('save', function(next) {
     if (this.percentage > 1) {
         this.percentage = 1;
     }
-    
+
     next();
 });
 
 // 确保返回的JSON格式正确
-racePrizeSchema.methods.toJSON = function() {
+racePrizeSchema.methods.toJSON = function () {
     return this.toObject();
 };
 
