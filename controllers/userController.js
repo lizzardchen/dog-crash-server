@@ -87,6 +87,19 @@ class UserController {
                 });
             }
             
+            // 检查余额是否足够（仅在非免费模式下检查）
+            if (!isFreeMode && !user.hasEnoughBalance(betAmount)) {
+                return res.status(400).json({
+                    error: 'Insufficient Balance',
+                    message: `Insufficient balance. Current balance: ${user.balance}, Required: ${betAmount}`,
+                    data: {
+                        currentBalance: user.balance,
+                        requiredAmount: betAmount
+                    },
+                    timestamp: new Date().toISOString()
+                });
+            }
+            
             // 更新游戏统计
             await user.updateGameStats(betAmount, multiplier, winAmount, isWin);
             

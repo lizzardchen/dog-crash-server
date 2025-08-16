@@ -115,6 +115,15 @@ userSchema.index({ lastLoginAt: -1 });
 userSchema.index({ highestMultiplier: -1 });
 userSchema.index({ isActive: 1 });
 
+// Pre-validate钩子 - 确保余额不会为负数（在验证之前执行）
+userSchema.pre('validate', function(next) {
+    if (this.balance < 0) {
+        console.warn(`Warning: User ${this.userId} balance was negative (${this.balance}), setting to 0`);
+        this.balance = 0;
+    }
+    next();
+});
+
 // 虚拟字段 - 胜率
 userSchema.virtual('winRate').get(function() {
     if (this.totalFlights === 0) return 0;
@@ -147,7 +156,13 @@ userSchema.methods.updateGameStats = function(betAmount, multiplier, winAmount, 
             this.highestWinAmount = winAmount;
         }
     } else {
-        this.balance -= betAmount; // 损失
+        // 检查余额是否足够，防止余额变成负数
+        if (this.balance >= betAmount) {
+            this.balance -= betAmount; // 损失
+        } else {
+            // 如果余额不足，将余额设为0
+            this.balance = 0;
+        }
     }
     
     this.lastSyncTime = new Date();
