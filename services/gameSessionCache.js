@@ -26,7 +26,7 @@ class GameSessionCache {
             maxCacheSize: 50000,                 // 增加缓存容量以支持比赛
             batchSaveInterval: 30000,            // 批量保存间隔（30秒）
             raceParticipantSyncInterval: 300000, // RaceParticipant同步间隔（5分钟）
-            raceCleanupDelay: 300000,            // 比赛结束后5分钟清理数据
+            raceCleanupDelay: 600000,            // 比赛结束后10分钟清理数据
             cleanupInterval: 600000,             // 清理任务间隔（10分钟）
             poolContributionRate: 0.01           // 奖池贡献率 1%
         };
@@ -612,6 +612,7 @@ class GameSessionCache {
             // 转换为数据库格式
             const dbSessions = sessionsToSave.map(session => ({
                 sessionId: session.sessionId || session.id,
+                raceId: session.raceId, // 添加必需的raceId字段
                 userId: session.userId,
                 betAmount: session.betAmount,
                 crashMultiplier: session.crashMultiplier || session.multiplier,

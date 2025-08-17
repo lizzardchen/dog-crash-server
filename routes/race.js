@@ -3,6 +3,7 @@ const { param, query, body } = require('express-validator');
 const raceManager = require('../services/raceManager');
 const gameSessionCache = require('../services/gameSessionCache');
 const RacePrize = require('../models/RacePrize');
+const User = require('../models/User');
 
 const router = express.Router();
 
@@ -14,7 +15,7 @@ const router = express.Router();
 router.get('/current', (req, res) => {
     try {
         const currentRace = raceManager.getCurrentRace();
-        
+
         if (!currentRace) {
             return res.status(200).json({
                 success: true,
@@ -25,10 +26,10 @@ router.get('/current', (req, res) => {
                 timestamp: new Date().toISOString()
             });
         }
-        
+
         // 获取奖池信息
         const prizePool = gameSessionCache.calculateRacePrizePool(currentRace.raceId);
-        
+
         res.status(200).json({
             success: true,
             data: {
@@ -44,7 +45,7 @@ router.get('/current', (req, res) => {
             },
             timestamp: new Date().toISOString()
         });
-        
+
     } catch (error) {
         console.error('Error getting current race:', error);
         res.status(500).json({
@@ -75,15 +76,15 @@ router.get('/:raceId/leaderboard', [
     try {
         const { raceId } = req.params;
         const { limit = 10, userId } = req.query;
-        
+
         if (userId) {
             // 获取包含用户信息的排行榜
             const leaderboardData = gameSessionCache.getRaceLeaderboardWithUser(
-                raceId, 
-                userId, 
+                raceId,
+                userId,
                 parseInt(limit)
             );
-            
+
             res.status(200).json({
                 success: true,
                 data: {
@@ -103,7 +104,7 @@ router.get('/:raceId/leaderboard', [
         } else {
             // 只获取排行榜
             const leaderboard = gameSessionCache.getRaceLeaderboard(raceId, parseInt(limit));
-            
+
             res.status(200).json({
                 success: true,
                 data: {
@@ -114,7 +115,7 @@ router.get('/:raceId/leaderboard', [
                 timestamp: new Date().toISOString()
             });
         }
-        
+
     } catch (error) {
         console.error('Error getting race leaderboard:', error);
         res.status(500).json({
@@ -129,7 +130,7 @@ router.get('/:raceId/leaderboard', [
  * @desc    获取用户在比赛中的详细信息
  * @access  Public
  */
-router.get('/:raceId/user/:userId', [
+router.get('/:raceId/raceuser/:userId', [
     param('raceId')
         .notEmpty()
         .withMessage('Race ID is required'),
@@ -139,9 +140,9 @@ router.get('/:raceId/user/:userId', [
 ], (req, res) => {
     try {
         const { raceId, userId } = req.params;
-        
+
         const userData = gameSessionCache.getUserRaceData(raceId, userId);
-        
+
         res.status(200).json({
             success: true,
             data: {
@@ -151,7 +152,7 @@ router.get('/:raceId/user/:userId', [
             },
             timestamp: new Date().toISOString()
         });
-        
+
     } catch (error) {
         console.error('Error getting user race data:', error);
         res.status(500).json({
@@ -174,9 +175,9 @@ router.get('/history', [
 ], async (req, res) => {
     try {
         const { limit = 5 } = req.query;
-        
+
         const history = await raceManager.getRaceHistory(parseInt(limit));
-        
+
         res.status(200).json({
             success: true,
             data: {
@@ -185,7 +186,7 @@ router.get('/history', [
             },
             timestamp: new Date().toISOString()
         });
-        
+
     } catch (error) {
         console.error('Error getting race history:', error);
         res.status(500).json({
@@ -203,13 +204,13 @@ router.get('/history', [
 router.get('/stats', (req, res) => {
     try {
         const stats = raceManager.getRaceStats();
-        
+
         res.status(200).json({
             success: true,
             data: stats,
             timestamp: new Date().toISOString()
         });
-        
+
     } catch (error) {
         console.error('Error getting race stats:', error);
         res.status(500).json({
@@ -236,7 +237,7 @@ router.get('/prizes/user/:userId', [
     try {
         const { userId } = req.params;
         const { limit = 20 } = req.query;
-        
+
         // 安全检查：确保userId是有效的
         if (!userId || typeof userId !== 'string' || userId.trim() === '') {
             return res.status(400).json({
@@ -244,13 +245,13 @@ router.get('/prizes/user/:userId', [
                 message: 'User ID must be provided and cannot be empty'
             });
         }
-        
+
         // 获取待领取奖励 - 如果用户没有参与比赛，返回空数组
         const pendingPrizes = await RacePrize.getUserPendingPrizes(userId, parseInt(limit)) || [];
-        
+
         // 计算总待领取金额
         const totalPendingAmount = pendingPrizes.reduce((sum, prize) => sum + prize.prizeAmount, 0);
-        
+
         res.status(200).json({
             success: true,
             data: {
@@ -261,7 +262,7 @@ router.get('/prizes/user/:userId', [
             },
             timestamp: new Date().toISOString()
         });
-        
+
     } catch (error) {
         console.error('Error getting user pending prizes:', error);
         res.status(500).json({
@@ -287,17 +288,17 @@ router.post('/prizes/:prizeId/claim', [
     try {
         const { prizeId } = req.params;
         const { userId } = req.body;
-        
+
         // 查找奖励记录
         const prize = await RacePrize.findById(prizeId);
-        
+
         if (!prize) {
             return res.status(404).json({
                 error: 'Prize Not Found',
                 message: 'The specified prize does not exist'
             });
         }
-        
+
         // 验证奖励归属
         if (prize.userId !== userId) {
             return res.status(403).json({
@@ -305,7 +306,7 @@ router.post('/prizes/:prizeId/claim', [
                 message: 'This prize does not belong to the specified user'
             });
         }
-        
+
         // 检查奖励状态
         if (prize.status !== 'pending') {
             return res.status(400).json({
@@ -313,17 +314,24 @@ router.post('/prizes/:prizeId/claim', [
                 message: `Prize is ${prize.status} and cannot be claimed`
             });
         }
-        
+
         // 奖励永不过期，直接领取
-        
+
         // 领取奖励
         await prize.claim();
-        
-        // TODO: 在这里调用用户服务增加用户余额
-        // await userService.addBalance(userId, prize.prizeAmount, 'race_prize');
-        
+
+        // 增加用户余额
+        const user = await User.findOne({ userId });
+        if (user) {
+            user.balance += prize.prizeAmount;
+            await user.save();
+            console.log(`💰 User ${userId} balance updated: +${prize.prizeAmount}, new balance: ${user.balance}`);
+        } else {
+            console.warn(`⚠️ User ${userId} not found when trying to add balance`);
+        }
+
         console.log(`🎁 Prize claimed: ${userId} received ${prize.prizeAmount} coins from race ${prize.raceId}`);
-        
+
         res.status(200).json({
             success: true,
             data: {
@@ -337,18 +345,18 @@ router.post('/prizes/:prizeId/claim', [
             },
             timestamp: new Date().toISOString()
         });
-        
+
     } catch (error) {
         console.error('Error claiming prize:', error);
-        
-        
+
+
         if (error.message.includes('claimed')) {
             return res.status(400).json({
                 error: 'Prize Already Claimed',
                 message: error.message
             });
         }
-        
+
         res.status(500).json({
             error: 'Internal Server Error',
             message: 'Failed to claim prize'
@@ -373,7 +381,7 @@ router.get('/prizes/user/:userId/history', [
     try {
         const { userId } = req.params;
         const { limit = 20 } = req.query;
-        
+
         // 安全检查：确保userId是有效的
         if (!userId || typeof userId !== 'string' || userId.trim() === '') {
             return res.status(400).json({
@@ -381,10 +389,10 @@ router.get('/prizes/user/:userId/history', [
                 message: 'User ID must be provided and cannot be empty'
             });
         }
-        
+
         // 获取奖励历史 - 如果用户没有参与比赛，返回空数组
         const prizeHistory = await RacePrize.getUserPrizeHistory(userId, parseInt(limit)) || [];
-        
+
         // 统计信息
         const stats = {
             totalPrizes: prizeHistory.length,
@@ -393,7 +401,7 @@ router.get('/prizes/user/:userId/history', [
             claimedCount: prizeHistory.filter(p => p.status === 'claimed').length,
             pendingCount: prizeHistory.filter(p => p.status === 'pending').length
         };
-        
+
         res.status(200).json({
             success: true,
             data: {
@@ -403,7 +411,7 @@ router.get('/prizes/user/:userId/history', [
             },
             timestamp: new Date().toISOString()
         });
-        
+
     } catch (error) {
         console.error('Error getting user prize history:', error);
         res.status(500).json({
@@ -426,10 +434,10 @@ router.get('/prizes/stats', [
 ], async (req, res) => {
     try {
         const { raceId } = req.query;
-        
+
         // 获取奖励统计
         const stats = await RacePrize.getPrizeStats(raceId);
-        
+
         res.status(200).json({
             success: true,
             data: {
@@ -438,7 +446,7 @@ router.get('/prizes/stats', [
             },
             timestamp: new Date().toISOString()
         });
-        
+
     } catch (error) {
         console.error('Error getting prize stats:', error);
         res.status(500).json({
@@ -460,10 +468,10 @@ router.get('/prizes/race/:raceId', [
 ], async (req, res) => {
     try {
         const { raceId } = req.params;
-        
+
         // 获取比赛奖励记录
         const racePrizes = await RacePrize.getRacePrizes(raceId);
-        
+
         // 统计信息
         const stats = {
             totalPrizes: racePrizes.length,
@@ -471,7 +479,7 @@ router.get('/prizes/race/:raceId', [
             claimedAmount: racePrizes.filter(p => p.status === 'claimed').reduce((sum, p) => sum + p.prizeAmount, 0),
             pendingAmount: racePrizes.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.prizeAmount, 0)
         };
-        
+
         res.status(200).json({
             success: true,
             data: {
@@ -481,7 +489,7 @@ router.get('/prizes/race/:raceId', [
             },
             timestamp: new Date().toISOString()
         });
-        
+
     } catch (error) {
         console.error('Error getting race prizes:', error);
         res.status(500).json({

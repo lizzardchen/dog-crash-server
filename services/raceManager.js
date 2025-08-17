@@ -19,8 +19,7 @@ class RaceManager {
         this.config = {
             raceDuration: 4 * 60 * 60 * 1000,    // 4小时（毫秒）
             raceInterval: 4 * 60 * 60 * 1000,    // 4小时间隔
-            autoStartDelay: 5000,                 // 服务器启动后5秒开始第一场比赛
-            prizeCleanupInterval: 60 * 60 * 1000  // 1小时清理一次过期奖励
+            autoStartDelay: 5000                 // 服务器启动后5秒开始第一场比赛
         };
 
         console.log('RaceManager initialized');
