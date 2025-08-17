@@ -47,7 +47,7 @@ const formatNumber = (num) => {
  */
 const isValidUserId = (userId) => {
     if (!userId || typeof userId !== 'string') return false;
-    if (userId.length < 10 || userId.length > 50) return false;
+    if (userId.length < 5 || userId.length > 50) return false;
     return /^[a-zA-Z0-9_-]+$/.test(userId);
 };
 
@@ -62,7 +62,7 @@ const isValidMultiplier = (multiplier) => {
 /**
  * 验证下注金额
  */
-const isValidBetAmount = (amount, minBet = 1, maxBet = 1000000) => {
+const isValidBetAmount = (amount, minBet = 0, maxBet = 1000000) => {
     const num = parseFloat(amount);
     return !isNaN(num) && num >= minBet && num <= maxBet;
 };
@@ -82,7 +82,7 @@ const formatDuration = (milliseconds) => {
     const seconds = Math.floor(milliseconds / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
-    
+
     if (hours > 0) {
         return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
     } else if (minutes > 0) {
@@ -170,7 +170,7 @@ const clamp = (num, min, max) => {
  */
 const generateCrashMultiplier = () => {
     const random = Math.random();
-    
+
     // 基于概率的崩盘倍数生成
     if (random < 0.5) {
         // 50% 概率：1.0x - 3.0x
@@ -192,23 +192,23 @@ const generateCrashMultiplier = () => {
  */
 const validateGameSession = (sessionData) => {
     const { userId, betAmount, multiplier, isWin } = sessionData;
-    
+
     if (!isValidUserId(userId)) {
         return { valid: false, error: 'Invalid user ID' };
     }
-    
+
     if (!isValidBetAmount(betAmount)) {
         return { valid: false, error: 'Invalid bet amount' };
     }
-    
+
     if (!isValidMultiplier(multiplier)) {
         return { valid: false, error: 'Invalid multiplier' };
     }
-    
+
     if (typeof isWin !== 'boolean') {
         return { valid: false, error: 'Invalid win status' };
     }
-    
+
     return { valid: true };
 };
 
@@ -220,11 +220,11 @@ const formatApiResponse = (success, data = null, message = null, error = null) =
         success,
         timestamp: new Date().toISOString()
     };
-    
+
     if (data !== null) response.data = data;
     if (message !== null) response.message = message;
     if (error !== null) response.error = error;
-    
+
     return response;
 };
 
