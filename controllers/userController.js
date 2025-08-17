@@ -67,15 +67,7 @@ class UserController {
             const { userId } = req.params;
             const { betAmount, multiplier, winAmount, isWin, sessionId, gameDuration, isFreeMode } = req.body;
             
-            // 输入验证
-            const errors = validationResult(req);
-            if (!errors.isEmpty()) {
-                return res.status(400).json({
-                    error: 'Validation Error',
-                    details: errors.array(),
-                    timestamp: new Date().toISOString()
-                });
-            }
+            // 验证已在路由中间件中处理
             
             // 查找用户
             const user = await User.findOne({ userId });

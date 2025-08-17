@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, param, query } = require('express-validator');
 const UserController = require('../controllers/userController');
+const { handleValidationErrors } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -17,8 +18,16 @@ const validateUserRecord = [
     body('betAmount')
         .isNumeric()
         .withMessage('Bet amount must be a number')
-        .isFloat({ min: 1, max: 1000000 })
-        .withMessage('Bet amount must be between 1 and 1,000,000'),
+        .custom((value, { req }) => {
+            const isFreeMode = req.body.isFreeMode;
+            if (isFreeMode && value === 0) {
+                return true; // 免费模式下允许betAmount为0
+            }
+            if (value < 0 || value > 10000000) {
+                throw new Error('Bet amount must be between 1 and 1,000,000');
+            }
+            return true;
+        }),
     
     body('multiplier')
         .isNumeric()
@@ -112,7 +121,7 @@ router.get('/:userId', validateUserId, UserController.getUserInfo);
  * @desc    更新用户游戏记录
  * @access  Public
  */
-router.post('/:userId/record', [...validateUserId, ...validateUserRecord], UserController.updateUserRecord);
+router.post('/:userId/record', [...validateUserId, ...validateUserRecord, handleValidationErrors], UserController.updateUserRecord);
 
 /**
  * @route   PUT /api/user/:userId/settings
