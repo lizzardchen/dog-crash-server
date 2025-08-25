@@ -17,8 +17,8 @@ NC='\033[0m' # No Color
 APP_NAME="dog-crash-server"
 APP_DIR="/www/wwwroot/dog-crash-server"
 PORT="3000"
-GIT_REPO="https://github.com/lizzardchen/dog-crash.git"
-GIT_BRANCH="main"
+GIT_REPO="https://gitee.com/lizzardcz/dog-crash-server.git"
+GIT_BRANCH="master"
 
 echo -e "${YELLOW}1. 创建应用目录并克隆代码...${NC}"
 
@@ -31,40 +31,10 @@ fi
 # 创建父目录
 mkdir -p "$(dirname "$APP_DIR")"
 
-# 快速下载 server 文件夹（使用 GitHub API）
-echo -e "${YELLOW}快速下载 server 文件夹...${NC}"
-
-# 方法1: 使用 GitHub API 下载压缩包
-REPO_OWNER="lizzardchen"
-REPO_NAME="dog-crash"
-DOWNLOAD_URL="https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/zipball/$GIT_BRANCH"
-
-# 下载并解压
-cd "$(dirname "$APP_DIR")"
-echo -e "${YELLOW}下载代码压缩包...${NC}"
-curl -L -o repo.zip "$DOWNLOAD_URL"
-
-echo -e "${YELLOW}解压文件...${NC}"
-unzip -q repo.zip
-EXTRACTED_DIR=$(find . -maxdepth 1 -name "*$REPO_OWNER-$REPO_NAME-*" -type d)
-
-# 移动 server 文件夹到目标目录
-if [ -d "$EXTRACTED_DIR/server" ]; then
-    mv "$EXTRACTED_DIR/server" "$APP_DIR"
-    echo -e "${GREEN}Server 文件夹移动完成${NC}"
-else
-    echo -e "${RED}错误: 未找到 server 文件夹${NC}"
-    exit 1
-fi
-
-# 清理临时文件
-rm -rf "$EXTRACTED_DIR" repo.zip
-
+# 直接克隆仓库
+echo -e "${YELLOW}直接克隆仓库...${NC}"
+git clone "$GIT_REPO" "$APP_DIR"
 cd "$APP_DIR"
-
-# 初始化 git（为了后续更新）
-git init
-git remote add origin "$GIT_REPO"
 
 # 验证 package.json 是否存在
 if [ ! -f "package.json" ]; then
@@ -133,8 +103,7 @@ set -e
 echo "🔄 开始更新..."
 
 APP_NAME="$APP_NAME"
-REPO_OWNER="lizzardchen"
-REPO_NAME="dog-crash"
+GIT_REPO="$GIT_REPO"
 GIT_BRANCH="$GIT_BRANCH"
 
 # 备份重要配置文件
@@ -142,36 +111,13 @@ echo "📦 备份配置文件..."
 [ -f ".env" ] && cp .env .env.backup
 [ -f "ecosystem.config.js" ] && cp ecosystem.config.js ecosystem.config.js.backup
 
-# 下载最新代码
-echo "📥 下载最新代码..."
-DOWNLOAD_URL="https://api.github.com/repos/\$REPO_OWNER/\$REPO_NAME/zipball/\$GIT_BRANCH"
-cd /tmp
-curl -L -o repo_update.zip "\$DOWNLOAD_URL"
-unzip -q repo_update.zip
-EXTRACTED_DIR=\$(find . -maxdepth 1 -name "*\$REPO_OWNER-\$REPO_NAME-*" -type d)
+# 更新代码
+echo "📥 更新代码..."
+git pull origin \$GIT_BRANCH
 
-# 更新文件（保留配置）
-echo "🔄 更新文件..."
-cd "$APP_DIR"
-if [ -d "/tmp/\$EXTRACTED_DIR/server" ]; then
-    # 备份并删除旧文件（除了配置文件）
-    find . -type f ! -name ".env*" ! -name "ecosystem.config.js*" ! -name "*.log" ! -path "./logs/*" ! -path "./node_modules/*" -delete
-    
-    # 复制新文件
-    cp -r /tmp/\$EXTRACTED_DIR/server/* ./
-    
-    echo "✅ 文件更新完成"
-else
-    echo "❌ 错误: 未找到 server 文件夹"
-    exit 1
-fi
-
-# 恢复配置文件
+# 恢复配置文件（如果需要）
 [ -f ".env.backup" ] && mv .env.backup .env
 [ -f "ecosystem.config.js.backup" ] && mv ecosystem.config.js.backup ecosystem.config.js
-
-# 清理临时文件
-rm -rf /tmp/\$EXTRACTED_DIR /tmp/repo_update.zip
 
 # 安装依赖
 echo "📦 安装依赖..."
@@ -201,3 +147,24 @@ echo -e "  停止应用: pm2 stop $APP_NAME"
 echo -e "  更新代码: cd $APP_DIR && ./update.sh"
 
 echo -e "${GREEN}🎉 服务器部署成功！${NC}"
+
+echo -e "${YELLOW}7. Nginx 反向代理教程${NC}"
+echo -e "以下是设置 Nginx 反向代理的基本步骤，用于将您的域名指向 Node.js 应用（端口 $PORT）："
+echo -e "1. 安装 Nginx（对于 Ubuntu）：sudo apt update && sudo apt install nginx"
+echo -e "2. 创建 Nginx 配置文件：sudo nano /etc/nginx/sites-available/$APP_NAME"
+echo -e "3. 在文件中添加以下配置（替换 yourdomain.com 为您的域名）："
+echo -e "server {"
+echo -e "    listen 80;"
+echo -e "    server_name yourdomain.com;"
+echo -e "    location / {"
+echo -e "        proxy_pass http://localhost:$PORT;"
+echo -e "        proxy_http_version 1.1;"
+echo -e "        proxy_set_header Upgrade \$http_upgrade;"
+echo -e "        proxy_set_header Connection 'upgrade';"
+echo -e "        proxy_set_header Host \$host;"
+echo -e "        proxy_cache_bypass \$http_upgrade;"
+echo -e "    }"
+echo -e "}"
+echo -e "4. 启用配置：sudo ln -s /etc/nginx/sites-available/$APP_NAME /etc/nginx/sites-enabled/"
+echo -e "5. 测试配置：sudo nginx -t"
+echo -e "6. 重启 Nginx：sudo systemctl restart nginx"
