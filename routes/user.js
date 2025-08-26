@@ -8,7 +8,7 @@ const router = express.Router();
 // 验证中间件
 const validateUserId = [
     param('userId')
-        .isLength({ min: 10, max: 50 })
+        .isLength({ min: 7, max: 50 })
         .withMessage('User ID must be between 10 and 50 characters')
         .matches(/^[a-zA-Z0-9_-]+$/)
         .withMessage('User ID can only contain letters, numbers, underscores, and hyphens')
@@ -28,36 +28,36 @@ const validateUserRecord = [
             }
             return true;
         }),
-    
+
     body('multiplier')
         .isNumeric()
         .withMessage('Multiplier must be a number')
         .isFloat({ min: 1.0, max: 1000 })
         .withMessage('Multiplier must be between 1.0 and 1000'),
-    
+
     body('winAmount')
         .optional()
         .isNumeric()
         .withMessage('Win amount must be a number')
         .isFloat({ min: 0 })
         .withMessage('Win amount must be non-negative'),
-    
+
     body('isWin')
         .isBoolean()
         .withMessage('isWin must be a boolean'),
-    
+
     body('sessionId')
         .optional()
         .isLength({ min: 10, max: 100 })
         .withMessage('Session ID must be between 10 and 100 characters'),
-    
+
     body('gameDuration')
         .optional()
         .isNumeric()
         .withMessage('Game duration must be a number')
         .isInt({ min: 0, max: 300000 })
         .withMessage('Game duration must be between 0 and 300,000 milliseconds'),
-    
+
     body('isFreeMode')
         .optional()
         .isBoolean()
@@ -69,27 +69,27 @@ const validateUserSettings = [
         .optional()
         .isBoolean()
         .withMessage('soundEnabled must be a boolean'),
-    
+
     body('musicEnabled')
         .optional()
         .isBoolean()
         .withMessage('musicEnabled must be a boolean'),
-    
+
     body('language')
         .optional()
         .isIn(['zh', 'en'])
         .withMessage('language must be either "zh" or "en"'),
-    
+
     body('autoCashOut.enabled')
         .optional()
         .isBoolean()
         .withMessage('autoCashOut.enabled must be a boolean'),
-    
+
     body('autoCashOut.multiplier')
         .optional()
         .isFloat({ min: 1.01, max: 1000 })
         .withMessage('autoCashOut.multiplier must be between 1.01 and 1000'),
-    
+
     body('autoCashOut.totalBets')
         .optional()
         .isInt({ min: -1 })
@@ -101,7 +101,7 @@ const validatePagination = [
         .optional()
         .isInt({ min: 1, max: 100 })
         .withMessage('Limit must be between 1 and 100'),
-    
+
     query('offset')
         .optional()
         .isInt({ min: 0 })
