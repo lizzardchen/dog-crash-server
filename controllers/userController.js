@@ -31,7 +31,7 @@ class UserController {
                 success: true,
                 data: {
                     userId: user.userId,
-                    username: user.username,
+                    username: user.userId,
                     balance: user.balance,
                     totalFlights: user.totalFlights,
                     flightsWon: user.flightsWon,
@@ -265,7 +265,7 @@ class UserController {
                     leaderboard: leaderboard.map((user, index) => ({
                         rank: index + 1,
                         userId: user.userId,
-                        username: user.username,
+                        username: user.userId,
                         highestMultiplier: user.highestMultiplier,
                         highestWinAmount: user.highestWinAmount,
                         flightsWon: user.flightsWon,

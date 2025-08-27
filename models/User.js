@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema({
         unique: true,
         index: true,
         trim: true,
-        minlength: 10,
+        minlength: 8,
         maxlength: 50
     },
     username: {
@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema({
         trim: true,
         minlength: 3,
         maxlength: 20,
-        default: function() {
+        default: function () {
             return `Player_${(this.userId || '').substring(0, 8)}`;
         }
     },
@@ -116,7 +116,7 @@ userSchema.index({ highestMultiplier: -1 });
 userSchema.index({ isActive: 1 });
 
 // Pre-validate钩子 - 确保余额不会为负数（在验证之前执行）
-userSchema.pre('validate', function(next) {
+userSchema.pre('validate', function (next) {
     if (this.balance < 0) {
         console.warn(`Warning: User ${this.userId} balance was negative (${this.balance}), setting to 0`);
         this.balance = 0;
@@ -125,30 +125,30 @@ userSchema.pre('validate', function(next) {
 });
 
 // 虚拟字段 - 胜率
-userSchema.virtual('winRate').get(function() {
+userSchema.virtual('winRate').get(function () {
     if (this.totalFlights === 0) return 0;
     return Math.round((this.flightsWon / this.totalFlights) * 100);
 });
 
 // 虚拟字段 - 净收益
-userSchema.virtual('netProfit').get(function() {
+userSchema.virtual('netProfit').get(function () {
     return this.balance - 1000; // 假设初始余额为1000
 });
 
 // 实例方法 - 更新最后登录时间
-userSchema.methods.updateLastLogin = function() {
+userSchema.methods.updateLastLogin = function () {
     this.lastLoginAt = new Date();
     this.lastSyncTime = new Date();
     return this.save();
 };
 
 // 实例方法 - 更新游戏统计
-userSchema.methods.updateGameStats = function(betAmount, multiplier, winAmount, isWin) {
+userSchema.methods.updateGameStats = function (betAmount, multiplier, winAmount, isWin) {
     this.totalFlights += 1;
     if (isWin) {
         this.flightsWon += 1;
         this.balance += winAmount - betAmount; // 净收益
-        
+
         // 更新最高记录
         if (multiplier > this.highestMultiplier) {
             this.highestMultiplier = multiplier;
@@ -164,18 +164,18 @@ userSchema.methods.updateGameStats = function(betAmount, multiplier, winAmount, 
             this.balance = 0;
         }
     }
-    
+
     this.lastSyncTime = new Date();
     return this.save();
 };
 
 // 实例方法 - 检查余额是否足够
-userSchema.methods.hasEnoughBalance = function(amount) {
+userSchema.methods.hasEnoughBalance = function (amount) {
     return this.balance >= amount;
 };
 
 // 静态方法 - 根据userId查找或创建用户
-userSchema.statics.findOrCreate = async function(userId) {
+userSchema.statics.findOrCreate = async function (userId) {
     try {
         // 使用findOneAndUpdate的upsert选项，原子性地查找或创建用户
         const user = await this.findOneAndUpdate(
@@ -183,7 +183,7 @@ userSchema.statics.findOrCreate = async function(userId) {
             {
                 $setOnInsert: {
                     userId,
-                    username: `Player_${(userId || '').substring(0, 8)}`,
+                    username: userId,
                     balance: 1000,
                     totalFlights: 0,
                     flightsWon: 0,
@@ -204,10 +204,10 @@ userSchema.statics.findOrCreate = async function(userId) {
                 setDefaultsOnInsert: true
             }
         );
-        
+
         console.log(`User handled: ${userId}`);
         return user;
-        
+
     } catch (error) {
         // 如果是重复键错误，重试查找
         if (error.code === 11000) {
@@ -223,7 +223,7 @@ userSchema.statics.findOrCreate = async function(userId) {
 };
 
 // 静态方法 - 获取排行榜
-userSchema.statics.getLeaderboard = async function(limit = 10) {
+userSchema.statics.getLeaderboard = async function (limit = 10) {
     return this.find({ isActive: true })
         .sort({ highestMultiplier: -1, highestWinAmount: -1 })
         .limit(limit)
@@ -232,47 +232,47 @@ userSchema.statics.getLeaderboard = async function(limit = 10) {
 };
 
 // 静态方法 - 获取用户排名
-userSchema.statics.getUserRank = async function(userId) {
+userSchema.statics.getUserRank = async function (userId) {
     const user = await this.findOne({ userId });
     if (!user) return null;
-    
+
     const rank = await this.countDocuments({
         isActive: true,
         $or: [
             { highestMultiplier: { $gt: user.highestMultiplier } },
-            { 
+            {
                 highestMultiplier: user.highestMultiplier,
                 highestWinAmount: { $gt: user.highestWinAmount }
             }
         ]
     });
-    
+
     return rank + 1;
 };
 
 // 预处理中间件
-userSchema.pre('save', function(next) {
+userSchema.pre('save', function (next) {
     // 确保余额不为负数
     if (this.balance < 0) {
         this.balance = 0;
     }
-    
+
     // 确保统计数据不为负数
     if (this.flightsWon > this.totalFlights) {
         this.flightsWon = this.totalFlights;
     }
-    
+
     next();
 });
 
 // 确保返回的JSON不包含敏感信息
-userSchema.methods.toJSON = function() {
+userSchema.methods.toJSON = function () {
     const userObject = this.toObject();
-    
+
     // 添加虚拟字段
     userObject.winRate = this.winRate;
     userObject.netProfit = this.netProfit;
-    
+
     return userObject;
 };
 
