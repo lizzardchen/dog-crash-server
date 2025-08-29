@@ -1,0 +1,6 @@
+{
+  "bettingCountdown": 60000,
+  "gameCountdown": 120000,
+  "autoStart": true,
+  "fixedCrashMultiplier": 6.71
+}

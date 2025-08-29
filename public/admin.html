@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>游戏倒计时配置管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+            font-size: 1.1em;
+        }
+        
+        input[type="number"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 1.1em;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+        
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .time-display {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 15px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #666;
+            border: 2px solid #e1e5e9;
+        }
+        
+        .btn-secondary:hover {
+            background: #e9ecef;
+            border-color: #adb5bd;
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 500;
+            display: none;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .current-config {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .current-config h3 {
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .config-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+        }
+        
+        .config-label {
+            font-weight: 500;
+            color: #555;
+        }
+        
+        .config-value {
+            color: #667eea;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 游戏倒计时配置</h1>
+        
+        <div class="current-config" id="currentConfig">
+            <h3>当前配置</h3>
+            <div class="config-item">
+                <span class="config-label">下注阶段时长:</span>
+                <span class="config-value" id="currentBetting">加载中...</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">游戏阶段时长:</span>
+                <span class="config-value" id="currentGame">加载中...</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">固定爆率值:</span>
+                <span class="config-value" id="currentCrashMultiplier">加载中...</span>
+            </div>
+        </div>
+        
+        <form id="configForm">
+            <div class="form-group">
+                <label for="bettingCountdown">下注阶段时长 (毫秒)</label>
+                <input type="number" id="bettingCountdown" min="5000" max="1800000" step="1000" placeholder="例如: 30000 (30秒)">
+                <div class="time-display" id="bettingDisplay">范围: 5秒 - 30分钟</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="gameCountdown">游戏阶段时长 (毫秒)</label>
+                <input type="number" id="gameCountdown" min="5000" max="1800000" step="1000" placeholder="例如: 60000 (60秒)">
+                <div class="time-display" id="gameDisplay">范围: 5秒 - 30分钟</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="crashMultiplier">固定爆率值</label>
+                <input type="number" id="crashMultiplier" min="0" max="1000" step="0.01" placeholder="例如: 2.5 (输入0表示随机爆率)">
+                <div class="time-display" id="crashDisplay">范围: 1.01 - 1000.00 (留空或输入0表示使用随机爆率)</div>
+            </div>
+            
+            <div class="button-group">
+                <button type="button" class="btn-secondary" onclick="loadCurrentConfig()">刷新配置</button>
+                <button type="submit" class="btn-primary">更新配置</button>
+            </div>
+        </form>
+        
+        <div class="status" id="status"></div>
+    </div>
+
+    <script>
+        // 格式化时间显示
+        function formatTime(ms) {
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            
+            if (hours > 0) {
+                return `${hours}小时${minutes % 60}分${seconds % 60}秒`;
+            } else if (minutes > 0) {
+                return `${minutes}分${seconds % 60}秒`;
+            } else {
+                return `${seconds}秒`;
+            }
+        }
+        
+        // 更新时间显示
+        function updateTimeDisplay(inputId, displayId) {
+            const input = document.getElementById(inputId);
+            const display = document.getElementById(displayId);
+            
+            input.addEventListener('input', function() {
+                const value = parseInt(this.value);
+                if (value && value >= 5000 && value <= 1800000) {
+                    display.textContent = `${formatTime(value)} (${value}毫秒)`;
+                    display.style.color = '#28a745';
+                } else if (value) {
+                    display.textContent = '超出有效范围 (5秒 - 30分钟)';
+                    display.style.color = '#dc3545';
+                } else {
+                    display.textContent = '范围: 5秒 - 30分钟';
+                    display.style.color = '#666';
+                }
+            });
+        }
+        
+        // 更新爆率显示
+        function updateCrashDisplay() {
+            const input = document.getElementById('crashMultiplier');
+            const display = document.getElementById('crashDisplay');
+            
+            input.addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                if (value === 0) {
+                    display.textContent = '随机爆率';
+                    display.style.color = '#28a745';
+                } else if (value && value >= 1.01 && value <= 1000) {
+                    display.textContent = `爆率: ${value}x`;
+                    display.style.color = '#28a745';
+                } else if (value && (value < 1.01 || value > 1000)) {
+                    display.textContent = '超出有效范围 (1.01 - 1000.00)';
+                    display.style.color = '#dc3545';
+                } else {
+                    display.textContent = '范围: 1.01 - 1000.00 (留空或输入0表示使用随机爆率)';
+                    display.style.color = '#666';
+                }
+            });
+        }
+        
+        // 显示状态消息
+        function showStatus(message, isSuccess = true) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${isSuccess ? 'success' : 'error'}`;
+            status.style.display = 'block';
+            
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 5000);
+        }
+        
+        // 加载当前配置
+        async function loadCurrentConfig() {
+            try {
+                console.log('开始加载配置...');
+                const response = await fetch('/api/game/countdown');
+                console.log('API响应状态:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                console.log('API返回数据:', result);
+                
+                if (result.success && result.data) {
+                    const { bettingCountdown, gameCountdown, fixedCrashMultiplier } = result.data;
+                    console.log('配置数据:', { bettingCountdown, gameCountdown, fixedCrashMultiplier });
+                    
+                    if (bettingCountdown && gameCountdown) {
+                        document.getElementById('currentBetting').textContent = formatTime(bettingCountdown);
+                        document.getElementById('currentGame').textContent = formatTime(gameCountdown);
+                        document.getElementById('currentCrashMultiplier').textContent = (fixedCrashMultiplier > 0) ? `${fixedCrashMultiplier}x` : '随机爆率';
+                        
+                        // 预填充表单
+                        document.getElementById('bettingCountdown').value = bettingCountdown;
+                        document.getElementById('gameCountdown').value = gameCountdown;
+                        if (fixedCrashMultiplier > 0) {
+                            document.getElementById('crashMultiplier').value = fixedCrashMultiplier;
+                        } else {
+                            document.getElementById('crashMultiplier').value = '';
+                        }
+                        
+                        // 触发时间显示更新
+                        document.getElementById('bettingCountdown').dispatchEvent(new Event('input'));
+                        document.getElementById('gameCountdown').dispatchEvent(new Event('input'));
+                        document.getElementById('crashMultiplier').dispatchEvent(new Event('input'));
+                        
+                        console.log('配置加载成功');
+                    } else {
+                        throw new Error('配置数据不完整');
+                    }
+                } else {
+                    throw new Error(result.message || '获取配置失败');
+                }
+            } catch (error) {
+                console.error('加载配置失败:', error);
+                document.getElementById('currentBetting').textContent = '加载失败';
+                document.getElementById('currentGame').textContent = '加载失败';
+                showStatus('加载当前配置失败: ' + error.message, false);
+            }
+        }
+        
+        // 表单提交处理
+        document.getElementById('configForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const bettingCountdown = parseInt(document.getElementById('bettingCountdown').value);
+            const gameCountdown = parseInt(document.getElementById('gameCountdown').value);
+            const crashMultiplier = parseFloat(document.getElementById('crashMultiplier').value);
+            
+            // 验证输入
+            if (!bettingCountdown || !gameCountdown) {
+                showStatus('请填写完整的配置信息', false);
+                return;
+            }
+            
+            if (bettingCountdown < 5000 || bettingCountdown > 1800000 || 
+                gameCountdown < 5000 || gameCountdown > 1800000) {
+                showStatus('时间配置超出有效范围 (5秒 - 30分钟)', false);
+                return;
+            }
+            
+            if (crashMultiplier && crashMultiplier !== 0 && (crashMultiplier < 1.01 || crashMultiplier > 1000)) {
+                showStatus('爆率值超出有效范围 (1.01 - 1000.00，或输入0表示随机)', false);
+                return;
+            }
+            
+            try {
+                const requestBody = {
+                    bettingCountdown,
+                    gameCountdown
+                };
+                
+                // 添加爆率值到请求中（如果为空或0则表示随机爆率）
+                if (crashMultiplier === 0 || (crashMultiplier >= 1.01 && crashMultiplier <= 1000)) {
+                    requestBody.crashMultiplier = crashMultiplier || 0;
+                } else {
+                    requestBody.crashMultiplier = 0; // 0表示随机爆率
+                }
+                
+                const response = await fetch('/api/game/countdown/config', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus('配置更新成功！', true);
+                    // 重新加载当前配置
+                    await loadCurrentConfig();
+                } else {
+                    throw new Error(result.message || '更新失败');
+                }
+            } catch (error) {
+                console.error('更新配置失败:', error);
+                showStatus('配置更新失败: ' + error.message, false);
+            }
+        });
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            updateTimeDisplay('bettingCountdown', 'bettingDisplay');
+            updateTimeDisplay('gameCountdown', 'gameDisplay');
+            updateCrashDisplay();
+            loadCurrentConfig();
+        });
+    </script>
+</body>
+</html>

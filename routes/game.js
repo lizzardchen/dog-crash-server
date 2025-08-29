@@ -1,7 +1,8 @@
 const express = require('express');
-const { body, query } = require('express-validator');
+const { body, query, validationResult } = require('express-validator');
 const GameSession = require('../models/GameSession');
 const gameSessionCache = require('../services/gameSessionCache');
+const gameCountdownManager = require('../services/gameCountdownManager');
 const path = require('path');
 const fs = require('fs');
 
@@ -249,10 +250,155 @@ router.get('/config', (req, res) => {
                 leaderboard: true,
                 gameHistory: true,
                 userStats: true,
-                memoryCache: true
+                memoryCache: true,
+                countdown: true
             }
         }
     });
 });
+
+/**
+ * @route   GET /api/game/countdown
+ * @desc    获取当前详细倒计时状态（状态：下注/游戏，剩余时间，配置时间，爆率设置）
+ * @access  Public
+ */
+router.get('/countdown', (req, res) => {
+    try {
+        const countdownStatus = gameCountdownManager.getCountdownStatus();
+        const config = gameCountdownManager.getConfig();
+        
+        // 简化返回数据，包含核心信息、配置时间和爆率设置
+        const simplifiedStatus = {
+            phase: countdownStatus.phase, // 'betting' 或 'gaming'
+            remainingTime: countdownStatus.remainingTime, // 剩余毫秒数
+            remainingSeconds: countdownStatus.remainingSeconds, // 剩余秒数
+            isCountingDown: countdownStatus.isCountingDown, // 是否正在倒计时
+            bettingCountdown: config.bettingCountdown, // 下注间隔时间（毫秒）
+            gameCountdown: config.gameCountdown, // 游戏间隔时间（毫秒）
+            fixedCrashMultiplier: config.fixedCrashMultiplier // 当前设置的爆率值（<=0表示随机爆率）
+        };
+        
+        res.status(200).json({
+            success: true,
+            data: simplifiedStatus,
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('Error getting countdown status:', error);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: 'Failed to get countdown status',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+
+
+/**
+ * @route   PUT /api/game/countdown/config
+ * @desc    设置下注时间、游戏时间和爆率值
+ * @access  Public
+ */
+router.put('/countdown/config', [
+    body('bettingCountdown')
+        .optional()
+        .isInt({ min: 5000, max: 1800000 })
+        .withMessage('下注倒计时必须在5秒-30分钟之间（毫秒）'),
+    body('gameCountdown')
+        .optional()
+        .isInt({ min: 5000, max: 1800000 })
+        .withMessage('游戏倒计时必须在5秒-30分钟之间（毫秒）'),
+    body('crashMultiplier')
+        .optional()
+        .isFloat({ min: 0.0, max: 1000.0 })
+        .withMessage('爆率值必须在0.0-1000.0之间（0表示随机爆率）')
+], (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                error: '参数验证失败',
+                message: '配置参数无效',
+                details: errors.array(),
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        const { bettingCountdown, gameCountdown, crashMultiplier } = req.body;
+        
+        // 更新倒计时配置
+        const updateConfig = {};
+        if (bettingCountdown !== undefined) updateConfig.bettingCountdown = bettingCountdown;
+        if (gameCountdown !== undefined) updateConfig.gameCountdown = gameCountdown;
+        
+        if (Object.keys(updateConfig).length > 0) {
+            gameCountdownManager.updateConfig(updateConfig);
+        }
+        
+        // 处理爆率值设置
+        let finalCrashMultiplier;
+        if (crashMultiplier !== undefined) {
+            if (crashMultiplier <= 0) {
+                // 如果设置为0或负数，生成随机爆率并更新到config中
+                finalCrashMultiplier = generateCrashMultiplier();
+                gameCountdownManager.updateConfig({ fixedCrashMultiplier: finalCrashMultiplier });
+                console.log(`生成随机爆率值: ${finalCrashMultiplier}x`);
+            } else {
+                // 设置固定爆率值
+                finalCrashMultiplier = crashMultiplier;
+                gameCountdownManager.updateConfig({ fixedCrashMultiplier: crashMultiplier });
+                console.log(`固定爆率值已设置为: ${crashMultiplier}x`);
+            }
+        } else {
+            // 如果没有提供crashMultiplier参数，检查当前config中的值
+            const currentConfig = gameCountdownManager.getConfig();
+            if (currentConfig.fixedCrashMultiplier <= 0) {
+                // 当前设置为随机爆率，生成新的随机爆率
+                finalCrashMultiplier = generateCrashMultiplier();
+                gameCountdownManager.updateConfig({ fixedCrashMultiplier: finalCrashMultiplier });
+                console.log(`当前为随机爆率，生成新的随机爆率值: ${finalCrashMultiplier}x`);
+            }
+        }
+        
+        const newConfig = gameCountdownManager.getConfig();
+        
+        // 返回更新后的配置信息
+        const responseData = {
+            bettingCountdown: newConfig.bettingCountdown,
+            gameCountdown: newConfig.gameCountdown,
+            fixedCrashMultiplier: newConfig.fixedCrashMultiplier
+        };
+        
+        res.status(200).json({
+            success: true,
+            message: '倒计时配置更新成功',
+            data: responseData,
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('Error updating countdown config:', error);
+        
+        if (error.message.includes('must be between')) {
+            res.status(400).json({
+                success: false,
+                error: '配置错误',
+                message: error.message,
+                timestamp: new Date().toISOString()
+            });
+        } else {
+            res.status(500).json({
+                error: '内部服务器错误',
+                message: '更新倒计时配置失败',
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+});
+
+
 
 module.exports = router;
