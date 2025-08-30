@@ -2,7 +2,7 @@
 
 ## 概述
 
-游戏倒计时系统是一个服务器端的倒计时管理器，用于控制每局游戏开始的倒计时。客户端可以通过API接口获取倒计时状态和剩余时间。
+游戏倒计时系统是一个服务器端的倒计时管理器，用于控制每局游戏的三段式倒计时流程：下注倒计时 → 等待游戏开始倒计时 → 游戏倒计时。客户端可以通过API接口获取倒计时状态和剩余时间。
 
 ## 功能特性
 
@@ -48,11 +48,14 @@ GET /api/game/countdown
 {
   "success": true,
   "data": {
+    "gameId": "game_1756452077398_m3xx3tmfz",
+    "round": 2,
     "phase": "betting",
     "remainingTime": 25000,
     "remainingSeconds": 25,
     "isCountingDown": true,
     "bettingCountdown": 30000,
+    "waitingCountdown": 5000,
     "gameCountdown": 60000,
     "fixedCrashMultiplier": 2.5
   },
@@ -61,11 +64,14 @@ GET /api/game/countdown
 ```
 
 **响应字段说明:**
-- `phase`: 当前阶段 (`"betting"` 或 `"gaming"`)
+- `gameId`: 当前游戏会话的唯一标识符
+- `round`: 当前游戏轮次
+- `phase`: 当前阶段 (`"betting"`, `"waiting"` 或 `"gaming"`)
 - `remainingTime`: 当前阶段剩余时间（毫秒）
 - `remainingSeconds`: 当前阶段剩余时间（秒）
 - `isCountingDown`: 是否正在倒计时
 - `bettingCountdown`: 下注阶段配置时长（毫秒）
+- `waitingCountdown`: 等待游戏开始阶段配置时长（毫秒）
 - `gameCountdown`: 游戏阶段配置时长（毫秒）
 - `fixedCrashMultiplier`: 当前设置的爆率值（<=0表示随机爆率，>0表示固定爆率）
 
@@ -77,6 +83,7 @@ Content-Type: application/json
 
 {
   "bettingCountdown": 30000,
+  "waitingCountdown": 5000,
   "gameCountdown": 60000,
   "crashMultiplier": 2.5
 }
@@ -84,6 +91,7 @@ Content-Type: application/json
 
 **参数说明:**
 - `bettingCountdown`: 下注阶段倒计时时长（毫秒），范围: 5000-1800000（可选）
+- `waitingCountdown`: 等待游戏开始阶段倒计时时长（毫秒），范围: 1000-60000（可选）
 - `gameCountdown`: 游戏阶段倒计时时长（毫秒），范围: 5000-1800000（可选）
 - `crashMultiplier`: 爆率值，范围: 0.0-1000.0（可选）
   - `0` 或负数: 设置为随机爆率，系统会自动生成随机爆率值
@@ -97,6 +105,7 @@ Content-Type: application/json
   "message": "倒计时配置更新成功",
   "data": {
     "bettingCountdown": 30000,
+    "waitingCountdown": 5000,
     "gameCountdown": 60000,
     "fixedCrashMultiplier": 2.5
   },
@@ -113,6 +122,7 @@ Content-Type: application/json
 ```javascript
 const defaultConfig = {
     bettingCountdown: 30000,     // 30秒下注倒计时
+    waitingCountdown: 5000,      // 5秒等待游戏开始倒计时
     gameCountdown: 10000,        // 10秒游戏倒计时
     fixedCrashMultiplier: 0,     // 爆率值（<=0表示随机爆率）
     autoStart: true              // 自动开始倒计时
@@ -122,6 +132,7 @@ const defaultConfig = {
 ### 配置说明
 
 - **bettingCountdown**: 下注阶段的倒计时持续时间（毫秒）
+- **waitingCountdown**: 等待游戏开始阶段的倒计时持续时间（毫秒）
 - **gameCountdown**: 游戏阶段的倒计时持续时间（毫秒）
 - **fixedCrashMultiplier**: 爆率值设置
   - `<= 0`: 随机爆率模式，系统自动生成随机爆率
@@ -135,14 +146,34 @@ const defaultConfig = {
 ### 事件类型
 
 ```javascript
-// 倒计时开始
-manager.on('countdownStarted', (data) => {
-    console.log('Countdown started:', data);
+// 下注倒计时开始
+manager.on('bettingCountdownStarted', (data) => {
+    console.log('Betting countdown started:', data);
+});
+
+// 等待游戏开始倒计时开始
+manager.on('waitingCountdownStarted', (data) => {
+    console.log('Waiting countdown started:', data);
+});
+
+// 游戏倒计时开始
+manager.on('gameCountdownStarted', (data) => {
+    console.log('Game countdown started:', data);
 });
 
 // 倒计时更新（每秒触发）
 manager.on('countdownUpdate', (data) => {
     console.log('Remaining time:', data.remainingTime);
+});
+
+// 下注阶段结束
+manager.on('bettingPhaseEnded', (data) => {
+    console.log('Betting phase ended:', data);
+});
+
+// 等待阶段结束
+manager.on('waitingPhaseEnded', (data) => {
+    console.log('Waiting phase ended:', data);
 });
 
 // 游戏开始
@@ -309,21 +340,39 @@ http://localhost:3000/admin.html
 
 ### 功能特性
 
-- 📊 **实时配置显示**: 显示当前的下注和游戏倒计时配置
+- 📊 **实时状态监控**: 显示当前运行游戏的实时状态信息
+- 📋 **配置管理**: 显示和修改倒计时系统配置
 - ⚙️ **配置修改**: 通过表单界面修改倒计时参数
-- 🔄 **实时更新**: 支持刷新当前配置
+- 🔄 **实时更新**: 支持刷新当前配置和状态
 - ✅ **表单验证**: 智能的输入验证和范围检查
 - 📱 **响应式设计**: 支持移动设备访问
 - 🎨 **现代UI**: 美观的渐变背景和现代化界面
+- ⏱️ **自动刷新**: 每5秒自动更新运行状态
 
-### 功能特性
+### 界面功能
 
-1. **查看当前配置**: 页面顶部显示当前的下注和游戏阶段时长，以及爆率设置
-2. **修改配置**: 在表单中输入新的时长值（毫秒）和爆率值
+#### 1. 当前运行游戏状态
+页面顶部实时显示当前游戏的运行状态：
+- **游戏ID**: 当前游戏会话的唯一标识符
+- **当前轮次**: 显示当前游戏轮次
+- **当前阶段**: 显示当前倒计时阶段（下注阶段/等待阶段/游戏阶段）
+- **剩余时间**: 当前阶段的剩余时间
+- **当前爆率**: 显示当前游戏的爆率设置（固定爆率或随机爆率）
+
+#### 2. 当前配置文件
+显示系统当前的配置信息：
+- **下注阶段时长**: 下注倒计时的配置时长
+- **等待阶段时长**: 等待游戏开始的配置时长
+- **游戏阶段时长**: 游戏倒计时的配置时长
+- **固定爆率值**: 当前设置的爆率值
+
+#### 3. 配置修改功能
+1. **修改配置**: 在表单中输入新的时长值（毫秒）和爆率值
+2. **三段倒计时设置**: 分别配置下注、等待、游戏三个阶段的时长
 3. **爆率设置**: 支持设置固定爆率或随机爆率模式
    - 输入 `0` 或留空: 设置为随机爆率
    - 输入 `1.01-1000`: 设置为固定爆率
-4. **范围提示**: 表单下方显示有效的时长范围（5秒-30分钟）和爆率范围
+4. **范围提示**: 表单下方显示有效的时长范围和爆率范围
 5. **提交更新**: 点击"更新配置"按钮应用新设置
 6. **刷新配置**: 点击"刷新配置"按钮重新加载当前设置
 
@@ -411,6 +460,20 @@ console.log('Debug info:', debugInfo);
   - 实现异步延迟配置保存机制
   - 优化服务器性能，避免频繁文件写入
   - 配置持久化，服务器重启后自动恢复设置
+- **v1.6.0**: 三段式倒计时系统
+  - 新增等待游戏开始阶段 (`waitingCountdown`)
+  - 倒计时流程改为：下注 → 等待 → 游戏
+  - API接口支持新的 `waiting` 阶段状态
+  - 新增等待阶段相关事件监听
+  - 更新配置接口支持 `waitingCountdown` 参数
+  - 完善三段倒计时的文档说明
+- **v1.7.0**: 游戏状态管理和界面增强
+  - API接口新增 `gameId` 和 `round` 字段
+  - Web管理界面新增"当前运行游戏状态"实时监控
+  - 支持显示游戏ID、轮次、阶段、剩余时间和当前爆率
+  - 实现每5秒自动刷新运行状态功能
+  - 优化前端数据获取和显示逻辑
+  - 完善游戏会话状态跟踪机制
 
 ## 许可证
 

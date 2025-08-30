@@ -1,6 +1,7 @@
 {
-  "bettingCountdown": 60000,
-  "gameCountdown": 120000,
+  "bettingCountdown": 10000,
+  "waitingCountdown": 12000,
+  "gameCountdown": 16000,
   "autoStart": true,
   "fixedCrashMultiplier": 6.71
 }

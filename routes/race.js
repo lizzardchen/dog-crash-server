@@ -299,8 +299,8 @@ router.post('/prizes/:prizeId/claim', [
             });
         }
 
-        // 验证奖励归属
-        if (prize.userId !== userId) {
+        // 验证奖励归属 - 确保类型一致性比较
+        if (prize.userId !== String(userId)) {
             return res.status(403).json({
                 error: 'Access Denied',
                 message: 'This prize does not belong to the specified user'

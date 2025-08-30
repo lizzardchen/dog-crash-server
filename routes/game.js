@@ -269,11 +269,14 @@ router.get('/countdown', (req, res) => {
         
         // 简化返回数据，包含核心信息、配置时间和爆率设置
         const simplifiedStatus = {
-            phase: countdownStatus.phase, // 'betting' 或 'gaming'
+            phase: countdownStatus.phase, // 'betting', 'waiting' 或 'gaming'
             remainingTime: countdownStatus.remainingTime, // 剩余毫秒数
             remainingSeconds: countdownStatus.remainingSeconds, // 剩余秒数
             isCountingDown: countdownStatus.isCountingDown, // 是否正在倒计时
+            gameId: countdownStatus.gameId, // 当前游戏ID
+            round: countdownStatus.round, // 当前轮次
             bettingCountdown: config.bettingCountdown, // 下注间隔时间（毫秒）
+            waitingCountdown: config.waitingCountdown, // 等待游戏开始间隔时间（毫秒）
             gameCountdown: config.gameCountdown, // 游戏间隔时间（毫秒）
             fixedCrashMultiplier: config.fixedCrashMultiplier // 当前设置的爆率值（<=0表示随机爆率）
         };
@@ -298,7 +301,7 @@ router.get('/countdown', (req, res) => {
 
 /**
  * @route   PUT /api/game/countdown/config
- * @desc    设置下注时间、游戏时间和爆率值
+ * @desc    设置下注时间、等待时间、游戏时间和爆率值
  * @access  Public
  */
 router.put('/countdown/config', [
@@ -306,6 +309,10 @@ router.put('/countdown/config', [
         .optional()
         .isInt({ min: 5000, max: 1800000 })
         .withMessage('下注倒计时必须在5秒-30分钟之间（毫秒）'),
+    body('waitingCountdown')
+        .optional()
+        .isInt({ min: 1000, max: 60000 })
+        .withMessage('等待倒计时必须在1秒-1分钟之间（毫秒）'),
     body('gameCountdown')
         .optional()
         .isInt({ min: 5000, max: 1800000 })
@@ -327,11 +334,12 @@ router.put('/countdown/config', [
             });
         }
         
-        const { bettingCountdown, gameCountdown, crashMultiplier } = req.body;
+        const { bettingCountdown, waitingCountdown, gameCountdown, crashMultiplier } = req.body;
         
         // 更新倒计时配置
         const updateConfig = {};
         if (bettingCountdown !== undefined) updateConfig.bettingCountdown = bettingCountdown;
+        if (waitingCountdown !== undefined) updateConfig.waitingCountdown = waitingCountdown;
         if (gameCountdown !== undefined) updateConfig.gameCountdown = gameCountdown;
         
         if (Object.keys(updateConfig).length > 0) {
@@ -368,6 +376,7 @@ router.put('/countdown/config', [
         // 返回更新后的配置信息
         const responseData = {
             bettingCountdown: newConfig.bettingCountdown,
+            waitingCountdown: newConfig.waitingCountdown,
             gameCountdown: newConfig.gameCountdown,
             fixedCrashMultiplier: newConfig.fixedCrashMultiplier
         };

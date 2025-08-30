@@ -167,13 +167,41 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎮 游戏倒计时配置</h1>
+        <h1>🎮 游戏倒计时配置管理</h1>
         
-        <div class="current-config" id="currentConfig">
-            <h3>当前配置</h3>
+        <div class="current-config">
+            <h2>当前运行游戏状态</h2>
+            <div class="config-item">
+                <span class="config-label">游戏ID:</span>
+                <span class="config-value" id="currentGameId">加载中...</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">当前轮次:</span>
+                <span class="config-value" id="currentRound">加载中...</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">当前阶段:</span>
+                <span class="config-value" id="currentPhase">加载中...</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">剩余时间:</span>
+                <span class="config-value" id="currentRemainingTime">加载中...</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">当前爆率:</span>
+                <span class="config-value" id="currentGameCrashMultiplier">加载中...</span>
+            </div>
+        </div>
+        
+        <div class="current-config">
+            <h2>当前配置文件</h2>
             <div class="config-item">
                 <span class="config-label">下注阶段时长:</span>
                 <span class="config-value" id="currentBetting">加载中...</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">等待阶段时长:</span>
+                <span class="config-value" id="currentWaiting">加载中...</span>
             </div>
             <div class="config-item">
                 <span class="config-label">游戏阶段时长:</span>
@@ -188,13 +216,19 @@
         <form id="configForm">
             <div class="form-group">
                 <label for="bettingCountdown">下注阶段时长 (毫秒)</label>
-                <input type="number" id="bettingCountdown" min="5000" max="1800000" step="1000" placeholder="例如: 30000 (30秒)">
+                <input type="number" id="bettingCountdown" min="5000" max="1800000" step="1000" placeholder="例如: 30000 (30秒)" required>
                 <div class="time-display" id="bettingDisplay">范围: 5秒 - 30分钟</div>
             </div>
             
             <div class="form-group">
+                <label for="waitingCountdown">等待阶段时长 (毫秒)</label>
+                <input type="number" id="waitingCountdown" min="1000" max="60000" step="1000" placeholder="例如: 3000 (3秒)" required>
+                <div class="time-display" id="waitingDisplay">范围: 1秒 - 1分钟</div>
+            </div>
+            
+            <div class="form-group">
                 <label for="gameCountdown">游戏阶段时长 (毫秒)</label>
-                <input type="number" id="gameCountdown" min="5000" max="1800000" step="1000" placeholder="例如: 60000 (60秒)">
+                <input type="number" id="gameCountdown" min="5000" max="1800000" step="1000" placeholder="例如: 60000 (60秒)" required>
                 <div class="time-display" id="gameDisplay">范围: 5秒 - 30分钟</div>
             </div>
             
@@ -284,6 +318,56 @@
             }, 5000);
         }
         
+        // 加载当前运行状态
+        async function loadCurrentStatus() {
+            try {
+                const response = await fetch('/api/game/countdown');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    const data = result.data;
+                    
+                    document.getElementById('currentGameId').textContent = data.gameId || '无';
+                    document.getElementById('currentRound').textContent = data.round || '0';
+                    
+                    // 阶段显示
+                    const phaseMap = {
+                        'betting': '下注阶段',
+                        'waiting': '等待阶段', 
+                        'gaming': '游戏阶段',
+                        'idle': '空闲'
+                    };
+                    document.getElementById('currentPhase').textContent = phaseMap[data.phase] || data.phase;
+                    
+                    // 剩余时间显示
+                    if (data.remainingTime > 0) {
+                        document.getElementById('currentRemainingTime').textContent = formatTime(data.remainingTime);
+                    } else {
+                        document.getElementById('currentRemainingTime').textContent = '无';
+                    }
+                    
+                    // 当前爆率显示
+                    if (data.fixedCrashMultiplier && data.fixedCrashMultiplier > 0) {
+                        document.getElementById('currentGameCrashMultiplier').textContent = `${data.fixedCrashMultiplier}x`;
+                    } else {
+                        document.getElementById('currentGameCrashMultiplier').textContent = '随机爆率';
+                    }
+                }
+            } catch (error) {
+                console.error('加载运行状态失败:', error);
+                document.getElementById('currentGameId').textContent = '加载失败';
+                document.getElementById('currentRound').textContent = '加载失败';
+                document.getElementById('currentPhase').textContent = '加载失败';
+                document.getElementById('currentRemainingTime').textContent = '加载失败';
+                document.getElementById('currentGameCrashMultiplier').textContent = '加载失败';
+            }
+        }
+        
         // 加载当前配置
         async function loadCurrentConfig() {
             try {
@@ -299,16 +383,18 @@
                 console.log('API返回数据:', result);
                 
                 if (result.success && result.data) {
-                    const { bettingCountdown, gameCountdown, fixedCrashMultiplier } = result.data;
-                    console.log('配置数据:', { bettingCountdown, gameCountdown, fixedCrashMultiplier });
+                    const { bettingCountdown, waitingCountdown, gameCountdown, fixedCrashMultiplier } = result.data;
+                    console.log('配置数据:', { bettingCountdown, waitingCountdown, gameCountdown, fixedCrashMultiplier });
                     
-                    if (bettingCountdown && gameCountdown) {
+                    if (bettingCountdown && waitingCountdown && gameCountdown) {
                         document.getElementById('currentBetting').textContent = formatTime(bettingCountdown);
+                        document.getElementById('currentWaiting').textContent = formatTime(waitingCountdown);
                         document.getElementById('currentGame').textContent = formatTime(gameCountdown);
                         document.getElementById('currentCrashMultiplier').textContent = (fixedCrashMultiplier > 0) ? `${fixedCrashMultiplier}x` : '随机爆率';
                         
                         // 预填充表单
                         document.getElementById('bettingCountdown').value = bettingCountdown;
+                        document.getElementById('waitingCountdown').value = waitingCountdown;
                         document.getElementById('gameCountdown').value = gameCountdown;
                         if (fixedCrashMultiplier > 0) {
                             document.getElementById('crashMultiplier').value = fixedCrashMultiplier;
@@ -318,6 +404,7 @@
                         
                         // 触发时间显示更新
                         document.getElementById('bettingCountdown').dispatchEvent(new Event('input'));
+                        document.getElementById('waitingCountdown').dispatchEvent(new Event('input'));
                         document.getElementById('gameCountdown').dispatchEvent(new Event('input'));
                         document.getElementById('crashMultiplier').dispatchEvent(new Event('input'));
                         
@@ -331,6 +418,7 @@
             } catch (error) {
                 console.error('加载配置失败:', error);
                 document.getElementById('currentBetting').textContent = '加载失败';
+                document.getElementById('currentWaiting').textContent = '加载失败';
                 document.getElementById('currentGame').textContent = '加载失败';
                 showStatus('加载当前配置失败: ' + error.message, false);
             }
@@ -341,18 +429,24 @@
             e.preventDefault();
             
             const bettingCountdown = parseInt(document.getElementById('bettingCountdown').value);
+            const waitingCountdown = parseInt(document.getElementById('waitingCountdown').value);
             const gameCountdown = parseInt(document.getElementById('gameCountdown').value);
             const crashMultiplier = parseFloat(document.getElementById('crashMultiplier').value);
             
             // 验证输入
-            if (!bettingCountdown || !gameCountdown) {
+            if (!bettingCountdown || !waitingCountdown || !gameCountdown) {
                 showStatus('请填写完整的配置信息', false);
                 return;
             }
             
             if (bettingCountdown < 5000 || bettingCountdown > 1800000 || 
                 gameCountdown < 5000 || gameCountdown > 1800000) {
-                showStatus('时间配置超出有效范围 (5秒 - 30分钟)', false);
+                showStatus('下注和游戏阶段时间配置超出有效范围 (5秒 - 30分钟)', false);
+                return;
+            }
+            
+            if (waitingCountdown < 1000 || waitingCountdown > 60000) {
+                showStatus('等待阶段时间配置超出有效范围 (1秒 - 1分钟)', false);
                 return;
             }
             
@@ -364,6 +458,7 @@
             try {
                 const requestBody = {
                     bettingCountdown,
+                    waitingCountdown,
                     gameCountdown
                 };
                 
@@ -386,8 +481,9 @@
                 
                 if (result.success) {
                     showStatus('配置更新成功！', true);
-                    // 重新加载当前配置
+                    // 重新加载当前配置和状态
                     await loadCurrentConfig();
+                    await loadCurrentStatus();
                 } else {
                     throw new Error(result.message || '更新失败');
                 }
@@ -400,9 +496,14 @@
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
             updateTimeDisplay('bettingCountdown', 'bettingDisplay');
+            updateTimeDisplay('waitingCountdown', 'waitingDisplay');
             updateTimeDisplay('gameCountdown', 'gameDisplay');
             updateCrashDisplay();
             loadCurrentConfig();
+            loadCurrentStatus();
+            
+            // 定时刷新运行状态（每5秒）
+            setInterval(loadCurrentStatus, 5000);
         });
     </script>
 </body>

@@ -20,6 +20,7 @@ class GameCountdownManager extends EventEmitter {
         // PIG模式倒计时配置（默认值）
         this.defaultConfig = {
             bettingCountdown: 30000,     // 下注倒计时时长（30秒）
+            waitingCountdown: 5000,      // 等待游戏开始倒计时时长（5秒）
             gameCountdown: 60000,        // 游戏倒计时时长（60秒）
             autoStart: true,             // 自动开始下一轮倒计时
             fixedCrashMultiplier: 0      // 固定爆率值（<=0表示使用随机爆率）
@@ -35,7 +36,7 @@ class GameCountdownManager extends EventEmitter {
         
         // 当前状态
         this.currentState = {
-            phase: 'idle',               // 当前阶段：'idle', 'betting', 'gaming'
+            phase: 'idle',               // 当前阶段：'idle', 'betting', 'waiting', 'gaming'
             isCountingDown: false,       // 是否正在倒计时
             countdownStartTime: null,    // 倒计时开始时间
             countdownEndTime: null,      // 倒计时结束时间
@@ -122,6 +123,37 @@ class GameCountdownManager extends EventEmitter {
     }
     
     /**
+     * 开始等待游戏开始倒计时阶段
+     */
+    startWaitingCountdown() {
+        // 清除现有定时器
+        this.clearTimers();
+        
+        // 设置等待倒计时状态
+        this.currentState.phase = 'waiting';
+        this.currentState.isCountingDown = true;
+        this.currentState.countdownStartTime = Date.now();
+        this.currentState.countdownEndTime = Date.now() + this.config.waitingCountdown;
+        
+        console.log(`⏳ Starting waiting countdown for game ${this.currentState.gameId}, round ${this.currentState.round}`);
+        
+        // 发出等待倒计时开始事件
+        this.emit('waitingCountdownStarted', {
+            gameId: this.currentState.gameId,
+            round: this.currentState.round,
+            phase: 'waiting',
+            countdownDuration: this.config.waitingCountdown,
+            startTime: this.currentState.countdownStartTime,
+            endTime: this.currentState.countdownEndTime
+        });
+        
+        // 设置等待倒计时结束定时器
+        this.countdownTimer = setTimeout(() => {
+            this.onWaitingCountdownFinished();
+        }, this.config.waitingCountdown);
+    }
+    
+    /**
      * 下注倒计时结束处理
      */
     onBettingCountdownFinished() {
@@ -129,6 +161,28 @@ class GameCountdownManager extends EventEmitter {
         
         // 发出下注阶段结束事件
         this.emit('bettingPhaseEnded', {
+            gameId: this.currentState.gameId,
+            round: this.currentState.round,
+            endTime: Date.now()
+        });
+        
+        // 自动开始等待游戏开始倒计时
+        if (this.config.autoStart) {
+            this.startWaitingCountdown();
+        } else {
+            this.currentState.isCountingDown = false;
+            this.currentState.phase = 'idle';
+        }
+    }
+    
+    /**
+     * 等待倒计时结束处理
+     */
+    onWaitingCountdownFinished() {
+        console.log(`⏳ Waiting countdown finished for game ${this.currentState.gameId}`);
+        
+        // 发出等待阶段结束事件
+        this.emit('waitingPhaseEnded', {
             gameId: this.currentState.gameId,
             round: this.currentState.round,
             endTime: Date.now()
@@ -182,8 +236,27 @@ class GameCountdownManager extends EventEmitter {
         }
         
         const remainingTime = Math.max(0, this.currentState.countdownEndTime - now);
-        const totalDuration = this.currentState.phase === 'betting' ? 
-            this.config.bettingCountdown : this.config.gameCountdown;
+        let totalDuration;
+        let phaseName;
+        
+        switch (this.currentState.phase) {
+            case 'betting':
+                totalDuration = this.config.bettingCountdown;
+                phaseName = '下注阶段';
+                break;
+            case 'waiting':
+                totalDuration = this.config.waitingCountdown;
+                phaseName = '等待游戏开始';
+                break;
+            case 'gaming':
+                totalDuration = this.config.gameCountdown;
+                phaseName = '游戏阶段';
+                break;
+            default:
+                totalDuration = 0;
+                phaseName = '未知阶段';
+        }
+        
         const progress = Math.min(1, (now - this.currentState.countdownStartTime) / totalDuration);
         
         return {
@@ -197,7 +270,7 @@ class GameCountdownManager extends EventEmitter {
             countdownStartTime: this.currentState.countdownStartTime,
             countdownEndTime: this.currentState.countdownEndTime,
             totalDuration: totalDuration,
-            phaseName: this.currentState.phase === 'betting' ? '下注阶段' : '游戏阶段'
+            phaseName: phaseName
         };
     }
     
@@ -374,6 +447,10 @@ class GameCountdownManager extends EventEmitter {
             throw new Error('Betting countdown must be between 5 seconds and 30 minutes');
         }
         
+        if (newConfig.waitingCountdown && (newConfig.waitingCountdown < 1000 || newConfig.waitingCountdown > 60000)) {
+            throw new Error('Waiting countdown must be between 1 second and 1 minute');
+        }
+        
         if (newConfig.gameCountdown && (newConfig.gameCountdown < 5000 || newConfig.gameCountdown > 1800000)) {
             throw new Error('Game countdown must be between 5 seconds and 30 minutes');
         }
@@ -501,6 +578,14 @@ gameCountdownManager.on('bettingCountdownStarted', (data) => {
 
 gameCountdownManager.on('bettingPhaseEnded', (data) => {
     console.log(`💰 Betting phase ended: Game ${data.gameId}, Round ${data.round}`);
+});
+
+gameCountdownManager.on('waitingCountdownStarted', (data) => {
+    console.log(`⏳ Waiting countdown started: Game ${data.gameId}, Round ${data.round}`);
+});
+
+gameCountdownManager.on('waitingPhaseEnded', (data) => {
+    console.log(`⏳ Waiting phase ended: Game ${data.gameId}, Round ${data.round}`);
 });
 
 gameCountdownManager.on('gameCountdownStarted', (data) => {
