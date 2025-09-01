@@ -33,6 +33,7 @@ class UserController {
                     userId: user.userId,
                     username: user.userId,
                     balance: user.balance,
+                    money: user.money,
                     totalFlights: user.totalFlights,
                     flightsWon: user.flightsWon,
                     highestMultiplier: user.highestMultiplier,
@@ -140,12 +141,12 @@ class UserController {
 
     /**
      * 更新用户设置
-     * PUT /api/user/:userId/settings
+     * POST /api/user/:userId/settings
      */
     static async updateUserSettings(req, res) {
         try {
             const { userId } = req.params;
-            const { soundEnabled, musicEnabled, language, autoCashOut } = req.body;
+            const { soundEnabled, musicEnabled, language, autoCashOut, money, balance } = req.body;
 
             const user = await User.findOne({ userId });
             if (!user) {
@@ -173,13 +174,25 @@ class UserController {
                 };
             }
 
+            // 更新money字段（如果提供了money参数）
+            if (money !== undefined && money !== null) {
+                user.money = Math.max(0, money); // 确保money不为负数
+            }
+
+            // 更新balance字段（如果提供了balance参数）
+            if (balance !== undefined && balance !== null) {
+                user.balance = Math.max(0, balance); // 确保balance不为负数
+            }
+
             user.lastSyncTime = new Date();
             await user.save();
 
             res.status(200).json({
                 success: true,
                 data: {
-                    settings: user.settings
+                    settings: user.settings,
+                    money: user.money,
+                    balance: user.balance
                 },
                 message: 'User settings updated successfully'
             });

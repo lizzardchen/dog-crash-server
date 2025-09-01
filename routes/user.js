@@ -128,7 +128,7 @@ router.post('/:userId/record', [...validateUserId, ...validateUserRecord, handle
  * @desc    更新用户设置
  * @access  Public
  */
-router.put('/:userId/settings', [...validateUserId, ...validateUserSettings], UserController.updateUserSettings);
+router.post('/:userId/settings', [...validateUserId, ...validateUserSettings], UserController.updateUserSettings);
 
 /**
  * @route   GET /api/user/:userId/history
