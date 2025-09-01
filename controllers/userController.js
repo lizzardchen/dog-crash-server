@@ -65,7 +65,7 @@ class UserController {
     static async updateUserRecord(req, res) {
         try {
             const { userId } = req.params;
-            const { betAmount, multiplier, winAmount, isWin, sessionId, gameDuration, isFreeMode } = req.body;
+            const { betAmount, multiplier, winAmount, isWin, sessionId, gameDuration, isFreeMode, money } = req.body;
 
             // 验证已在路由中间件中处理
 
@@ -93,7 +93,7 @@ class UserController {
             }
 
             // 更新游戏统计
-            await user.updateGameStats(betAmount, multiplier, winAmount, isWin);
+            await user.updateGameStats(betAmount, multiplier, winAmount, isWin, money);
 
             // 添加游戏会话到内存缓存（后台异步保存到数据库）
             const sessionData = {
@@ -116,6 +116,7 @@ class UserController {
                 data: {
                     userId: user.userId,
                     balance: user.balance,
+                    money: user.money,
                     totalFlights: user.totalFlights,
                     flightsWon: user.flightsWon,
                     highestMultiplier: user.highestMultiplier,

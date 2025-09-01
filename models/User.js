@@ -27,6 +27,13 @@ const userSchema = new mongoose.Schema({
         min: 0,
         max: 999999999
     },
+    money: {
+        type: Number,
+        required: true,
+        default: 100,
+        min: 0,
+        max: 999999999
+    },
     // 游戏统计
     totalFlights: {
         type: Number,
@@ -121,6 +128,10 @@ userSchema.pre('validate', function (next) {
         console.warn(`Warning: User ${this.userId} balance was negative (${this.balance}), setting to 0`);
         this.balance = 0;
     }
+    if (this.money < 0) {
+        console.warn(`Warning: User ${this.userId} money was negative (${this.money}), setting to 0`);
+        this.money = 0;
+    }
     next();
 });
 
@@ -143,7 +154,7 @@ userSchema.methods.updateLastLogin = function () {
 };
 
 // 实例方法 - 更新游戏统计
-userSchema.methods.updateGameStats = function (betAmount, multiplier, winAmount, isWin) {
+userSchema.methods.updateGameStats = function (betAmount, multiplier, winAmount, isWin, money) {
     this.totalFlights += 1;
     if (isWin) {
         this.flightsWon += 1;
@@ -163,6 +174,11 @@ userSchema.methods.updateGameStats = function (betAmount, multiplier, winAmount,
             // 如果余额不足，将余额设为0
             this.balance = 0;
         }
+    }
+
+    // 更新money字段（如果提供了money参数）
+    if (money !== undefined && money !== null) {
+        this.money = Math.max(0, money); // 确保money不为负数
     }
 
     this.lastSyncTime = new Date();
@@ -185,6 +201,7 @@ userSchema.statics.findOrCreate = async function (userId) {
                     userId,
                     username: userId,
                     balance: 1000,
+                    money: 100,
                     totalFlights: 0,
                     flightsWon: 0,
                     highestMultiplier: 1,
@@ -255,6 +272,11 @@ userSchema.pre('save', function (next) {
     // 确保余额不为负数
     if (this.balance < 0) {
         this.balance = 0;
+    }
+
+    // 确保money不为负数
+    if (this.money < 0) {
+        this.money = 0;
     }
 
     // 确保统计数据不为负数
