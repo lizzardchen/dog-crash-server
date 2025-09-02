@@ -158,7 +158,7 @@ userSchema.methods.updateGameStats = function (betAmount, multiplier, winAmount,
     this.totalFlights += 1;
     if (isWin) {
         this.flightsWon += 1;
-        this.balance += winAmount - betAmount; // 净收益
+        this.balance += (winAmount - betAmount) > 0 ? (winAmount - betAmount) : 0; // 净收益
 
         // 更新最高记录
         if (multiplier > this.highestMultiplier) {

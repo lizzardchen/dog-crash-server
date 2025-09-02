@@ -73,7 +73,7 @@ class GameSessionCache {
             ...sessionData,
             raceId: raceId,
             timestamp: Date.now(),
-            netProfit: (sessionData.winAmount || 0) - sessionData.betAmount,
+            netProfit: (sessionData.winAmount - sessionData.betAmount) > 0 ? (sessionData.winAmount - sessionData.betAmount) : 0,
             id: `${sessionData.userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
         };
 
@@ -122,7 +122,7 @@ class GameSessionCache {
         participant.totalBetAmount += session.betAmount;
         participant.totalWinAmount += (session.winAmount || 0);
         participant.netProfit += session.netProfit;
-        participant.contributionToPool += session.winAmount * this.config.poolContributionRate;
+        participant.contributionToPool += Math.max(0, session.winAmount || 0) * this.config.poolContributionRate;
         participant.sessionCount += 1;
         participant.lastUpdateTime = Date.now();
 

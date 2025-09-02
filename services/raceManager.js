@@ -299,7 +299,7 @@ class RaceManager {
                     userTotalBetAmount: userData.totalBetAmount || 0,
                     userTotalWinAmount: userData.totalWinAmount || 0,
                     // 用户在比赛中贡献的总奖金（奖池贡献）
-                    score: userData.contributionToPool || 0,
+                    score: Math.max(0, userData.contributionToPool || 0),
 
                     createdBy: 'system'
                 };
@@ -341,7 +341,7 @@ class RaceManager {
                         userSessionCount: userData.sessionCount || 0,
                         userTotalBetAmount: userData.totalBetAmount || 0,
                         userTotalWinAmount: userData.totalWinAmount || 0,
-                        score: userData.contributionToPool || 0
+                        score: Math.max(0, userData.contributionToPool || 0)
                     });
 
                     await racePrize.save();

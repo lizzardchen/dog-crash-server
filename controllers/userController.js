@@ -105,7 +105,7 @@ class UserController {
                 cashOutMultiplier: isWin ? multiplier : 0,
                 isWin,
                 winAmount: winAmount || 0,
-                profit: isWin ? (winAmount - betAmount) : -betAmount,
+                profit: isWin ? (winAmount - betAmount) : 0,
                 gameDuration: gameDuration || 0,
                 isFreeMode: isFreeMode || false
             };
