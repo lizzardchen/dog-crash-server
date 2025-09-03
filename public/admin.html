@@ -290,7 +290,7 @@
             
             input.addEventListener('input', function() {
                 const value = parseFloat(this.value);
-                if (value === 0) {
+                if (value <= 0) {
                     display.textContent = '随机爆率';
                     display.style.color = '#28a745';
                 } else if (value && value >= 1.01 && value <= 1000) {
@@ -372,7 +372,7 @@
         async function loadCurrentConfig() {
             try {
                 console.log('开始加载配置...');
-                const response = await fetch('/api/game/countdown');
+                const response = await fetch('/api/game/countdown/config');
                 console.log('API响应状态:', response.status);
                 
                 if (!response.ok) {

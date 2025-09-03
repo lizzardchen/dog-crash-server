@@ -165,27 +165,8 @@ const clamp = (num, min, max) => {
     return Math.min(Math.max(num, min), max);
 };
 
-/**
- * 生成崩盘倍数（简单算法）
- */
-const generateCrashMultiplier = () => {
-    const random = Math.random();
-
-    // 基于概率的崩盘倍数生成
-    if (random < 0.5) {
-        // 50% 概率：1.0x - 3.0x
-        return 1.0 + Math.random() * 2.0;
-    } else if (random < 0.8) {
-        // 30% 概率：3.0x - 5.0x
-        return 3.0 + Math.random() * 2.0;
-    } else if (random < 0.95) {
-        // 15% 概率：5.0x - 10.0x
-        return 5.0 + Math.random() * 5.0;
-    } else {
-        // 5% 概率：10.0x - 100.0x
-        return 10.0 + Math.random() * 90.0;
-    }
-};
+// 从multiplierService引入generateCrashMultiplier
+const { generateCrashMultiplier } = require('../services/multiplierService');
 
 /**
  * 验证游戏会话数据

@@ -3,49 +3,11 @@ const { body, query, validationResult } = require('express-validator');
 const GameSession = require('../models/GameSession');
 const gameSessionCache = require('../services/gameSessionCache');
 const gameCountdownManager = require('../services/gameCountdownManager');
-const path = require('path');
-const fs = require('fs');
+const { generateCrashMultiplier, getMultiplierConfig } = require('../services/multiplierService');
 
 const router = express.Router();
 
-// 加载 MultiplierConfig
-let multiplierConfig;
-try {
-    const configPath = path.join(__dirname, '../config/multiplierConfig.json');
-    multiplierConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    console.log('MultiplierConfig loaded from file');
-} catch (error) {
-    console.error('Failed to load MultiplierConfig:', error);
-    multiplierConfig = null;
-}
 
-/**
- * 生成崩盘倍数（使用配置文件）
- */
-function generateCrashMultiplier() {
-    if (!multiplierConfig || !multiplierConfig.crashConfig) {
-        // 降级到简单实现
-        return 1.0 + Math.random() * 9.0;
-    }
-
-    const random = Math.random();
-    let cumulativeProbability = 0;
-
-    for (const config of multiplierConfig.crashConfig) {
-        cumulativeProbability += config.probability;
-        if (random <= cumulativeProbability) {
-            const range = config.maxMultiplier - config.minMultiplier;
-            const multiplier = config.minMultiplier + Math.random() * range;
-            return Math.round(multiplier * 100) / 100; // 保留两位小数
-        }
-    }
-
-    // 如果没有匹配到，返回最后一个配置的随机值
-    const lastConfig = multiplierConfig.crashConfig[multiplierConfig.crashConfig.length - 1];
-    const range = lastConfig.maxMultiplier - lastConfig.minMultiplier;
-    const multiplier = lastConfig.minMultiplier + Math.random() * range;
-    return Math.round(multiplier * 100) / 100;
-}
 
 /**
  * @route   GET /api/game/multiplier-config
@@ -54,6 +16,7 @@ function generateCrashMultiplier() {
  */
 router.get('/multiplier-config', (req, res) => {
     try {
+        const multiplierConfig = getMultiplierConfig();
         if (!multiplierConfig) {
             return res.status(500).json({
                 error: 'Configuration Error',
@@ -85,9 +48,9 @@ router.get('/multiplier-config', (req, res) => {
 router.get('/crash-multiplier', (req, res) => {
     try {
         const crashMultiplier = generateCrashMultiplier();
-        
+
         console.log(`Generated crash multiplier: ${crashMultiplier}x`);
-        
+
         res.status(200).json({
             success: true,
             data: {
@@ -115,7 +78,7 @@ router.get('/stats', async (req, res) => {
         // 从内存缓存获取实时统计
         const stats = gameSessionCache.getGlobalStats();
         const recentCrashes = gameSessionCache.getRecentCrashes(10);
-        
+
         res.status(200).json({
             success: true,
             data: {
@@ -139,7 +102,7 @@ router.get('/stats', async (req, res) => {
             },
             timestamp: new Date().toISOString()
         });
-        
+
     } catch (error) {
         console.error('Error in getGameStats:', error);
         res.status(500).json({
@@ -162,10 +125,10 @@ router.get('/history', [
 ], async (req, res) => {
     try {
         const { limit = 20 } = req.query;
-        
+
         // 首先从内存缓存获取最新的记录
         let history = gameSessionCache.getRecentCrashes(parseInt(limit));
-        
+
         // 如果缓存中记录不足，从数据库补充
         if (history.length < parseInt(limit)) {
             const dbHistory = await GameSession.find({})
@@ -173,17 +136,17 @@ router.get('/history', [
                 .limit(parseInt(limit) - history.length)
                 .select('crashMultiplier gameStartTime gameDuration isWin')
                 .lean();
-            
+
             const dbHistoryFormatted = dbHistory.map(game => ({
                 multiplier: game.crashMultiplier,
                 timestamp: game.gameStartTime.getTime(),
                 duration: game.gameDuration,
                 isWin: game.isWin
             }));
-            
+
             history = [...history, ...dbHistoryFormatted];
         }
-        
+
         res.status(200).json({
             success: true,
             data: {
@@ -195,7 +158,7 @@ router.get('/history', [
                 }))
             }
         });
-        
+
     } catch (error) {
         console.error('Error in getGameHistory:', error);
         res.status(500).json({
@@ -214,7 +177,7 @@ router.get('/cache-status', (req, res) => {
     try {
         const cacheStatus = gameSessionCache.getCacheStatus();
         const globalStats = gameSessionCache.getGlobalStats();
-        
+
         res.status(200).json({
             success: true,
             data: {
@@ -239,7 +202,7 @@ router.get('/cache-status', (req, res) => {
  */
 router.get('/config', (req, res) => {
     const config = require('../config/server');
-    
+
     res.status(200).json({
         success: true,
         data: {
@@ -266,7 +229,11 @@ router.get('/countdown', (req, res) => {
     try {
         const countdownStatus = gameCountdownManager.getCountdownStatus();
         const config = gameCountdownManager.getConfig();
-        
+        let finalCrashMultiplier = config.fixedCrashMultiplier;
+        if (finalCrashMultiplier <= 0) {
+            finalCrashMultiplier = gameCountdownManager.getCurrentGameCrashMultiplier();
+        }
+
         // 简化返回数据，包含核心信息、配置时间和爆率设置
         const simplifiedStatus = {
             phase: countdownStatus.phase, // 'betting', 'waiting' 或 'gaming'
@@ -278,15 +245,15 @@ router.get('/countdown', (req, res) => {
             bettingCountdown: config.bettingCountdown, // 下注间隔时间（毫秒）
             waitingCountdown: config.waitingCountdown, // 等待游戏开始间隔时间（毫秒）
             gameCountdown: config.gameCountdown, // 游戏间隔时间（毫秒）
-            fixedCrashMultiplier: config.fixedCrashMultiplier // 当前设置的爆率值（<=0表示随机爆率）
+            fixedCrashMultiplier: finalCrashMultiplier // 当前设置的爆率值（<=0表示随机爆率）
         };
-        
+
         res.status(200).json({
             success: true,
             data: simplifiedStatus,
             timestamp: new Date().toISOString()
         });
-        
+
     } catch (error) {
         console.error('Error getting countdown status:', error);
         res.status(500).json({
@@ -297,7 +264,34 @@ router.get('/countdown', (req, res) => {
     }
 });
 
-
+/**
+ * @route   GET /api/game/countdown/config
+ * @desc    获取游戏倒计时配置信息
+ * @access  Public
+ */
+router.get('/countdown/config', (req, res) => {
+    try {
+        const config = gameCountdownManager.getConfig();
+        
+        res.status(200).json({
+            success: true,
+            data: {
+                bettingCountdown: config.bettingCountdown,
+                waitingCountdown: config.waitingCountdown,
+                gameCountdown: config.gameCountdown,
+                fixedCrashMultiplier: config.fixedCrashMultiplier
+            },
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Error getting countdown config:', error);
+        res.status(500).json({
+            error: 'Internal Server Error',
+            message: 'Failed to get countdown config',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
 
 /**
  * @route   PUT /api/game/countdown/config
@@ -333,27 +327,27 @@ router.put('/countdown/config', [
                 timestamp: new Date().toISOString()
             });
         }
-        
+
         const { bettingCountdown, waitingCountdown, gameCountdown, crashMultiplier } = req.body;
-        
+
         // 更新倒计时配置
         const updateConfig = {};
         if (bettingCountdown !== undefined) updateConfig.bettingCountdown = bettingCountdown;
         if (waitingCountdown !== undefined) updateConfig.waitingCountdown = waitingCountdown;
         if (gameCountdown !== undefined) updateConfig.gameCountdown = gameCountdown;
-        
+
         if (Object.keys(updateConfig).length > 0) {
             gameCountdownManager.updateConfig(updateConfig);
         }
-        
+
         // 处理爆率值设置
         let finalCrashMultiplier;
         if (crashMultiplier !== undefined) {
             if (crashMultiplier <= 0) {
                 // 如果设置为0或负数，生成随机爆率并更新到config中
-                finalCrashMultiplier = generateCrashMultiplier();
-                gameCountdownManager.updateConfig({ fixedCrashMultiplier: finalCrashMultiplier });
-                console.log(`生成随机爆率值: ${finalCrashMultiplier}x`);
+                // finalCrashMultiplier = generateCrashMultiplier();
+                gameCountdownManager.updateConfig({ fixedCrashMultiplier: 0 });
+                console.log(`固定爆率值已设置为: 0x`);
             } else {
                 // 设置固定爆率值
                 finalCrashMultiplier = crashMultiplier;
@@ -365,14 +359,14 @@ router.put('/countdown/config', [
             const currentConfig = gameCountdownManager.getConfig();
             if (currentConfig.fixedCrashMultiplier <= 0) {
                 // 当前设置为随机爆率，生成新的随机爆率
-                finalCrashMultiplier = generateCrashMultiplier();
-                gameCountdownManager.updateConfig({ fixedCrashMultiplier: finalCrashMultiplier });
-                console.log(`当前为随机爆率，生成新的随机爆率值: ${finalCrashMultiplier}x`);
+                // finalCrashMultiplier = generateCrashMultiplier();
+                gameCountdownManager.updateConfig({ fixedCrashMultiplier: 0 });
+                console.log(`当前为随机爆率，已将爆率值设置为: 0x`);
             }
         }
-        
+
         const newConfig = gameCountdownManager.getConfig();
-        
+
         // 返回更新后的配置信息
         const responseData = {
             bettingCountdown: newConfig.bettingCountdown,
@@ -380,17 +374,17 @@ router.put('/countdown/config', [
             gameCountdown: newConfig.gameCountdown,
             fixedCrashMultiplier: newConfig.fixedCrashMultiplier
         };
-        
+
         res.status(200).json({
             success: true,
             message: '倒计时配置更新成功',
             data: responseData,
             timestamp: new Date().toISOString()
         });
-        
+
     } catch (error) {
         console.error('Error updating countdown config:', error);
-        
+
         if (error.message.includes('must be between')) {
             res.status(400).json({
                 success: false,
