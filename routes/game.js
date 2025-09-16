@@ -237,7 +237,7 @@ router.get('/countdown', (req, res) => {
         // 简化返回数据，包含核心信息、配置时间和爆率设置
         const simplifiedStatus = {
             phase: countdownStatus.phase, // 'betting', 'waiting' 或 'gaming'
-            startingTime: countdownStatus.countdownStartTime,
+            startingTime: countdownStatus.countdownStartTime,//DateTime.now()
             remainingTime: countdownStatus.remainingTime, // 剩余毫秒数
             remainingSeconds: countdownStatus.remainingSeconds, // 剩余秒数
             isCountingDown: countdownStatus.isCountingDown, // 是否正在倒计时
