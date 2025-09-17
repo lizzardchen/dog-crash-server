@@ -184,6 +184,10 @@
                 <span class="config-value" id="currentPhase">加载中...</span>
             </div>
             <div class="config-item">
+                <span class="config-label">phase_start时间:</span>
+                <span class="config-value" id="currentStartTime">加载中...</span>
+            </div>
+            <div class="config-item">
                 <span class="config-label">剩余时间:</span>
                 <span class="config-value" id="currentRemainingTime">加载中...</span>
             </div>
@@ -261,6 +265,19 @@
             } else {
                 return `${seconds}秒`;
             }
+        }
+        
+        // 格式化时间戳为 yyyyMMdd HH:MM:ss 格式
+        function formatDateTime(timestamp) {
+            const date = new Date(timestamp);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            
+            return `${year}${month}${day} ${hours}:${minutes}:${seconds}`;
         }
         
         // 更新时间显示
@@ -344,6 +361,9 @@
                     };
                     document.getElementById('currentPhase').textContent = phaseMap[data.phase] || data.phase;
                     
+                    if(data.startingTime > 0){
+                        document.getElementById('currentStartTime').textContent = formatDateTime(data.startingTime);
+                    }
                     // 剩余时间显示
                     if (data.remainingTime > 0) {
                         document.getElementById('currentRemainingTime').textContent = formatTime(data.remainingTime);
@@ -502,8 +522,8 @@
             loadCurrentConfig();
             loadCurrentStatus();
             
-            // 定时刷新运行状态（每5秒）
-            setInterval(loadCurrentStatus, 5000);
+            // 定时刷新运行状态（每1秒）
+            setInterval(loadCurrentStatus, 1000);
         });
     </script>
 </body>
