@@ -34,6 +34,9 @@ class UserController {
                     username: user.userId,
                     balance: user.balance,
                     money: user.money,
+                    completedLevelId: user.completedLevelId,
+                    completedTaskId: user.completedTaskId,
+                    stars: user.stars,
                     totalFlights: user.totalFlights,
                     flightsWon: user.flightsWon,
                     highestMultiplier: user.highestMultiplier,
@@ -66,7 +69,7 @@ class UserController {
     static async updateUserRecord(req, res) {
         try {
             const { userId } = req.params;
-            const { betAmount, multiplier, winAmount, isWin, sessionId, gameDuration, isFreeMode, money } = req.body;
+            const { betAmount, multiplier, winAmount, isWin, sessionId, gameDuration, isFreeMode, money, stars } = req.body;
 
             // 验证已在路由中间件中处理
 
@@ -94,7 +97,7 @@ class UserController {
             }
 
             // 更新游戏统计
-            await user.updateGameStats(betAmount, multiplier, winAmount, isWin, money);
+            await user.updateGameStats(betAmount, multiplier, winAmount, isWin, money, stars);
 
             // 添加游戏会话到内存缓存（后台异步保存到数据库）
             const sessionData = {
@@ -118,6 +121,7 @@ class UserController {
                     userId: user.userId,
                     balance: user.balance,
                     money: user.money,
+                    stars: user.stars,
                     totalFlights: user.totalFlights,
                     flightsWon: user.flightsWon,
                     highestMultiplier: user.highestMultiplier,
@@ -202,6 +206,54 @@ class UserController {
             res.status(500).json({
                 error: 'Internal Server Error',
                 message: 'Failed to update user settings'
+            });
+        }
+    }
+
+    /**
+     * 添加一个完成关卡id的接口
+     * POST /api/user/:userId/completelevel
+     */
+    static async completeLevel(req, res) {
+        try {
+            const { userId } = req.params;
+            const { levelId } = req.body;
+
+            // 验证输入
+            if (typeof levelId !== 'number' || levelId < 0) {
+                return res.status(400).json({
+                    error: 'Invalid Input',
+                    message: 'levelId must be a non-negative number'
+                });
+            }
+
+            // 查找用户
+            const user = await User.findOne({ userId });
+            if (!user) {
+                return res.status(404).json({
+                    error: 'User Not Found',
+                    message: 'User does not exist'
+                });
+            }
+
+            // 更新用户的完成关卡ID
+            user.completedLevelId = levelId;
+            await user.save();
+
+            res.json({
+                success: true,
+                message: 'Level completed successfully',
+                data: {
+                    userId: user.userId,
+                    completedLevelId: user.completedLevelId
+                }
+            });
+
+        } catch (error) {
+            console.error('Complete level error:', error);
+            res.status(500).json({
+                error: 'Internal Server Error',
+                message: 'Failed to complete level'
             });
         }
     }

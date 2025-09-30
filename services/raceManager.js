@@ -62,8 +62,16 @@ class RaceManager {
 
                     // 计算剩余时间并设置结束定时器
                     const remainingTime = raceEndTime - now;
-                    setTimeout(() => {
-                        this.endRaceById(activeRace.raceId);
+                    setTimeout(async () => {
+                        try {
+                            await this.endRaceById(activeRace.raceId);
+                            // 立即开始下一个比赛
+                            console.log('🚀 Starting next race immediately...');
+                            this.startNewRace();
+                        }
+                        catch (error) {
+                            console.error('Error in scheduled race end2:', error);
+                        }
                     }, remainingTime);
 
                     console.log(`✅ Restored active race: ${activeRace.raceId}`);
@@ -161,8 +169,16 @@ class RaceManager {
             gameSessionCache.setCurrentRace(raceId);
 
             // 设置这轮比赛的结束定时器
-            setTimeout(() => {
-                this.endRaceById(raceId);
+            setTimeout(async () => {
+                try {
+                    await this.endRaceById(raceId);
+                    // 立即开始下一个比赛
+                    console.log('🚀 Starting next race immediately...');
+                    await this.startNewRace();
+                }
+                catch (error) {
+                    console.error('Error in scheduled race end1:', error);
+                }
             }, this.config.raceDuration);
 
             console.log(`✅ Race ${raceId} started successfully`);
@@ -239,9 +255,9 @@ class RaceManager {
                 this.currentRace = null;
             }
 
-            // 立即开始下一个比赛
-            console.log('🚀 Starting next race immediately...');
-            this.startNewRace();
+            // // 立即开始下一个比赛
+            // console.log('🚀 Starting next race immediately...');
+            // this.startNewRace();
 
         } catch (error) {
             console.error(`Error ending race ${raceId}:`, error);

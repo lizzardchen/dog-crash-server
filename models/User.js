@@ -110,6 +110,22 @@ const userSchema = new mongoose.Schema({
                 default: -1 // -1表示无限
             }
         }
+    },
+    // 游戏进度相关字段
+    completedLevelId: {
+        type: Number,
+        default: -1,
+        min: -1
+    },
+    completedTaskId: {
+        type: Number,
+        default: -1,
+        min: -1
+    },
+    stars: {
+        type: Number,
+        default: 0,
+        min: 0
     }
 }, {
     timestamps: true, // 自动添加createdAt和updatedAt
@@ -154,7 +170,7 @@ userSchema.methods.updateLastLogin = function () {
 };
 
 // 实例方法 - 更新游戏统计
-userSchema.methods.updateGameStats = function (betAmount, multiplier, winAmount, isWin, money) {
+userSchema.methods.updateGameStats = function (betAmount, multiplier, winAmount, isWin, money, stars) {
     this.totalFlights += 1;
     if (isWin) {
         this.flightsWon += 1;
@@ -179,6 +195,10 @@ userSchema.methods.updateGameStats = function (betAmount, multiplier, winAmount,
     // 更新money字段（如果提供了money参数）
     if (money !== undefined && money !== null) {
         this.money = Math.max(0, money); // 确保money不为负数
+    }
+    // 更新stars字段（如果提供了stars参数）
+    if (stars !== undefined && stars !== null) {
+        this.stars += Math.max(0, stars); // 确保stars不为负数
     }
 
     this.lastSyncTime = new Date();

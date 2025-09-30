@@ -108,6 +108,14 @@ const validatePagination = [
         .withMessage('Offset must be non-negative')
 ];
 
+const validateCompleteLevel = [
+    body('levelId')
+        .isNumeric()
+        .withMessage('Level ID must be a number')
+        .isInt({ min: 0 })
+        .withMessage('Level ID must be a non-negative integer')
+];
+
 // 用户路由
 /**
  * @route   GET /api/user/:userId
@@ -155,5 +163,12 @@ router.get('/leaderboard', [
  * @access  Public
  */
 router.delete('/:userId', validateUserId, UserController.deleteUser);
+
+/**
+ * @route   POST /api/user/:userId/completelevel
+ * @desc    完成关卡
+ * @access  Public
+ */
+router.post('/:userId/completelevel', [...validateUserId, ...validateCompleteLevel, handleValidationErrors], UserController.completeLevel);
 
 module.exports = router;
