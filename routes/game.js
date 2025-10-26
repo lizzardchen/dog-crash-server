@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, query, validationResult } = require('express-validator');
 const GameSession = require('../models/GameSession');
+const UserGameSettings = require('../models/UserGameSettings');
 const gameSessionCache = require('../services/gameSessionCache');
 const gameCountdownManager = require('../services/gameCountdownManager');
 const { generateCrashMultiplier, getMultiplierConfig } = require('../services/multiplierService');
@@ -39,6 +40,8 @@ router.get('/multiplier-config', (req, res) => {
         });
     }
 });
+
+
 
 /**
  * @route   GET /api/game/crash-multiplier
@@ -403,6 +406,171 @@ router.put('/countdown/config', [
     }
 });
 
+/**
+ * @route   POST /api/game/ai-settings
+ * @desc    设置用户下一局的下注金额和爆率
+ * @access  Public
+ */
+router.post('/ai-settings', [
+    body('userId')
+        .notEmpty()
+        .custom((value) => {
+            // 将数字转换为字符串进行验证
+            const strValue = String(value);
+            if (strValue.length < 8 || strValue.length > 50) {
+                throw new Error('用户ID必须是8-50位字符串');
+            }
+            return true;
+        }),
+    body('nextBetAmount')
+        .optional()
+        .isFloat({ min: 1, max: 999999999 })
+        .withMessage('下注金额必须在1-999999999之间'),
+    body('nextCrashMultiplier')
+        .optional()
+        .isFloat({ min: 0, max: 1000 })
+        .withMessage('爆率值必须在0-1000之间（0表示随机爆率）')
+], async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                error: '参数验证失败',
+                message: '请求参数无效',
+                details: errors.array(),
+                timestamp: new Date().toISOString()
+            });
+        }
 
+        const { userId, nextBetAmount, nextCrashMultiplier } = req.body;
+
+        // 查找或创建用户游戏设置
+        let userSettings = await UserGameSettings.findOrCreate(userId);
+
+        // 更新设置
+        if (nextBetAmount !== undefined) {
+            userSettings.nextBetAmount = nextBetAmount;
+        }
+        if (nextCrashMultiplier !== undefined) {
+            userSettings.nextCrashMultiplier = nextCrashMultiplier;
+        }
+
+        await userSettings.save();
+
+        console.log(`用户 ${userId} 游戏设置已更新: 下注金额=${userSettings.nextBetAmount}, 爆率=${userSettings.nextCrashMultiplier}`);
+
+        res.status(200).json({
+            success: true,
+            message: '用户游戏设置更新成功',
+            data: {
+                userId: userSettings.userId,
+                nextBetAmount: userSettings.nextBetAmount,
+                nextCrashMultiplier: userSettings.nextCrashMultiplier
+            },
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('Error updating user game settings:', error);
+        res.status(500).json({
+            success: false,
+            error: '内部服务器错误',
+            message: '更新用户游戏设置失败',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+
+/**
+ * @route   GET /api/game/ai-crash-multiplier/:userId/:betAmount
+ * @desc    根据下注金额获取崩盘倍数（金额匹配时使用用户设置，否则随机生成）
+ * @access  Public
+ */
+router.get('/ai-crash-multiplier/:userId/:betAmount', async (req, res) => {
+    try {
+        const { userId, betAmount } = req.params;
+        
+        // 参数验证
+        if (!userId || userId.length < 8 || userId.length > 50) {
+            return res.status(400).json({
+                success: false,
+                message: '参数验证失败',
+                errors: [{ msg: '用户ID必须是8-50位字符串', path: 'userId' }]
+            });
+        }
+
+        const betAmountNum = parseFloat(betAmount);
+        if (isNaN(betAmountNum) || betAmountNum < 1 || betAmountNum > 999999999) {
+            return res.status(400).json({
+                success: false,
+                message: '参数验证失败',
+                errors: [{ msg: '下注金额必须在1-999999999之间', path: 'betAmount' }]
+            });
+        }
+
+        let crashMultiplier;
+        let isUserCustom = false;
+
+        // 尝试获取用户设置
+        try {
+            const userSettings = await UserGameSettings.findOne({ userId });
+
+            if (userSettings && userSettings.nextCrashMultiplier > 0 && userSettings.nextBetAmount > 0) {
+                // 检查传入的下注金额是否与用户设置的金额相同
+                if (betAmountNum === userSettings.nextBetAmount) {
+                    // 金额匹配，使用用户设置的爆率
+                    crashMultiplier = userSettings.nextCrashMultiplier;
+                    isUserCustom = true;
+                    console.log(`用户 ${userId} 下注金额匹配 (${betAmountNum})，使用设置的爆率: ${crashMultiplier}x`);
+                } else {
+                    // 金额不匹配，使用随机生成的爆率
+                    crashMultiplier = generateCrashMultiplier();
+                    isUserCustom = false;
+                    console.log(`用户 ${userId} 下注金额不匹配 (传入:${betAmountNum}, 设置:${userSettings.nextBetAmount})，使用随机生成: ${crashMultiplier}x`);
+                }
+            } else {
+                // 用户未设置完整的游戏参数，使用随机生成的爆率
+                crashMultiplier = generateCrashMultiplier();
+                isUserCustom = false;
+                console.log(`用户 ${userId} 未设置完整游戏参数，使用随机生成: ${crashMultiplier}x`);
+            }
+        } catch (dbError) {
+            console.error('数据库查询错误，使用随机爆率:', dbError);
+            crashMultiplier = generateCrashMultiplier();
+            isUserCustom = false;
+        }
+
+        res.status(200).json({
+            success: true,
+            data: {
+                crashMultiplier: crashMultiplier,
+                userId: userId,
+                betAmount: betAmountNum,
+                isUserCustom: isUserCustom,
+                timestamp: Date.now()
+            }
+        });
+
+    } catch (error) {
+        console.error('Error generating crash multiplier for user:', error);
+
+        // 发生错误时使用随机生成的爆率作为后备
+        const fallbackMultiplier = generateCrashMultiplier();
+
+        res.status(200).json({
+            success: true,
+            data: {
+                crashMultiplier: fallbackMultiplier,
+                userId: req.params.userId || null,
+                betAmount: parseFloat(req.params.betAmount) || null,
+                isUserCustom: false,
+                timestamp: Date.now()
+            },
+            warning: '获取用户设置时发生错误，使用随机爆率'
+        });
+    }
+});
 
 module.exports = router;
