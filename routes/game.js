@@ -524,6 +524,14 @@ router.get('/ai-crash-multiplier/:userId/:betAmount', async (req, res) => {
                     crashMultiplier = userSettings.nextCrashMultiplier;
                     isUserCustom = true;
                     console.log(`用户 ${userId} 下注金额匹配 (${betAmountNum})，使用设置的爆率: ${crashMultiplier}x`);
+                    
+                    // 使用完毕后删除该设置记录
+                    try {
+                        await UserGameSettings.deleteOne({ userId });
+                        console.log(`用户 ${userId} 的游戏设置已删除（已使用）`);
+                    } catch (deleteError) {
+                        console.error(`删除用户 ${userId} 游戏设置时出错:`, deleteError);
+                    }
                 } else {
                     // 金额不匹配，使用随机生成的爆率
                     crashMultiplier = generateCrashMultiplier();
